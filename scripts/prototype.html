@@ -1,0 +1,1025 @@
+<title>Merrymen Mudbowl</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: full-bleed night stadium; title top-left, standings top-right, week picker along the bottom, driver card slides up on tap. Single-theme by design: arena at night under floodlights. */
+:root{
+  --night:#0d0f14; --steel:#1b1f27; --chalk:#f1ece2; --chalk-dim:#a9a49a;
+  --hazard:#f5b021; --flare:#ff6a2b; --panel:rgba(13,15,20,.84); --line:rgba(241,236,226,.15);
+  --win:#8fd17c; --loss:#ee7a64;
+  --display:"Bungee",Impact,"Arial Black",sans-serif;
+  --body:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--night);color:var(--chalk);font-family:var(--body);overflow:hidden;font-size:16px}
+#stage{position:fixed;inset:0}
+canvas{display:block;touch-action:none}
+.hud{position:fixed;pointer-events:none;z-index:5}
+.hud > *{pointer-events:auto}
+#crest{top:calc(env(safe-area-inset-top,0px) + 14px);left:max(16px,env(safe-area-inset-left,0px));max-width:min(60vw,440px)}
+#crest .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--hazard)}
+#crest h1{font-family:var(--display);font-weight:400;font-size:clamp(22px,4.4vw,36px);line-height:1;margin:.2em 0 .25em;text-wrap:balance;text-shadow:0 3px 0 #000,0 0 22px rgba(255,106,43,.35)}
+#crest p{margin:0;color:var(--chalk-dim);font-size:15px;line-height:1.3;text-shadow:0 1px 8px #000}
+#table{top:calc(env(safe-area-inset-top,0px) + 14px);right:max(16px,env(safe-area-inset-right,0px));background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);width:236px;box-sizing:border-box}
+#table h2{font-family:var(--display);font-weight:400;font-size:14px;margin:0 0 6px;color:var(--hazard);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#table h2 small{font-family:var(--mono);font-size:10px;color:var(--chalk-dim);letter-spacing:.08em}
+#table ol{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+#table li button{all:unset;cursor:pointer;display:grid;grid-template-columns:14px 10px 1fr auto;gap:7px;align-items:center;width:100%;padding:4px;border-radius:5px;font-size:15px;font-weight:500;box-sizing:border-box}
+#table li button:hover,#table li button.on{background:rgba(241,236,226,.08)}
+#table li button:focus-visible{outline:1px solid var(--hazard)}
+#table .rk{font-family:var(--mono);font-size:11px;color:var(--chalk-dim)}
+#table .sw{width:10px;height:10px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+#table .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#table .rec{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--chalk-dim)}
+#tableToggle{display:none}
+#scrub{left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px 12px;width:min(560px,calc(100vw - 32px));box-sizing:border-box;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#scrub .row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:7px}
+#scrub .wk{font-family:var(--display);font-size:17px}
+#scrub .hint{font-size:14px;color:var(--chalk-dim);text-align:right}
+#weeks{display:grid;grid-template-columns:repeat(var(--nw,8),1fr);gap:4px}
+#weeks button{all:unset;cursor:pointer;text-align:center;font-family:var(--mono);font-size:12px;padding:8px 0;border-radius:5px;border:1px solid var(--line);color:var(--chalk-dim);position:relative}
+#weeks button.on{background:var(--hazard);color:#191204;border-color:var(--hazard)}
+#weeks button:focus-visible{outline:2px solid var(--chalk);outline-offset:1px}
+#weeks button.live::after{content:"";position:absolute;top:4px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--flare);animation:pulse 1.4s infinite}
+@keyframes pulse{50%{opacity:.25}}
+#ledger{left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 158px);transform:translateX(-50%);width:min(560px,calc(100vw - 32px));box-sizing:border-box;background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--tc,var(--hazard));border-radius:10px;padding:14px 16px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#ledger header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+#ledger h3{font-family:var(--display);font-weight:400;font-size:21px;margin:0;line-height:1.05;text-wrap:balance}
+#ledger .handle{font-size:15px;color:var(--chalk-dim);margin-top:3px}
+#ledger .x{all:unset;cursor:pointer;font-size:22px;line-height:1;color:var(--chalk-dim);padding:2px 6px;border-radius:5px}
+#ledger .x:focus-visible{outline:1px solid var(--hazard)}
+#ledger dl{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 10px}
+#ledger dt{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--chalk-dim)}
+#ledger dd{margin:2px 0 0;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums}
+#ledger .bars{width:100%;height:84px;display:block}
+#ledger .note{font-size:15px;color:var(--chalk-dim);margin:6px 0 0}
+#ledger .note b{color:var(--chalk);font-weight:600}
+.tag{position:fixed;left:0;top:0;pointer-events:auto;cursor:pointer;white-space:nowrap;text-align:center;z-index:3;padding:3px 8px 4px;border-radius:5px;background:rgba(10,12,16,.78);border:1px solid var(--line);border-bottom:2px solid var(--tc);line-height:1.15}
+.tag b{display:block;font-family:var(--display);font-weight:400;font-size:12px;letter-spacing:.02em}
+.tag span{font-family:var(--mono);font-size:10.5px;color:var(--chalk-dim)}
+.tag.dim{opacity:.5}
+.tag:focus-visible{outline:1px solid var(--hazard)}
+/* view switch */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;font-family:var(--display);font-size:11.5px;letter-spacing:.03em;padding:5px 10px;color:var(--chalk-dim)}
+.seg button[aria-pressed="true"]{background:var(--chalk);color:#111}
+.seg button:focus-visible{outline:2px solid var(--hazard);outline-offset:-2px}
+#scrub .hint{margin-top:7px;text-align:left;font-size:13.5px}
+/* analytics */
+#dash{position:fixed;inset:0;z-index:4;overflow-y:auto;background:rgba(11,13,18,.965);
+  padding-top:calc(env(safe-area-inset-top,0px) + 18px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 150px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#dash .wrap{max-width:980px;margin:0 auto;display:grid;gap:22px}
+#dash .head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+#dash .head h2{font-family:var(--display);font-weight:400;font-size:clamp(22px,4vw,30px);margin:0;line-height:1}
+#dash .head p{margin:4px 0 0;color:var(--chalk-dim);font-size:15px}
+#dash section{display:grid;gap:10px;min-width:0}
+#dash h3{font-family:var(--display);font-weight:400;font-size:14px;letter-spacing:.03em;margin:0;color:var(--hazard)}
+#dash .sub{font-size:14.5px;color:var(--chalk-dim);margin:-4px 0 0;max-width:68ch}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--steel);min-width:0}
+.tile .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--chalk-dim)}
+.tile .v{font-family:var(--mono);font-size:24px;font-variant-numeric:tabular-nums;margin:4px 0 2px}
+.tile .d{font-size:14.5px;color:var(--chalk-dim);line-height:1.25}
+.tile .d b{color:var(--chalk);font-weight:600}
+.two{display:grid;grid-template-columns:1.35fr 1fr;gap:22px}
+.two > *{min-width:0}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.power{border-collapse:collapse;width:100%;min-width:620px;font-size:15px}
+table.power th{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--chalk-dim);font-weight:500;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.power th:first-child,table.power td:first-child{text-align:left}
+table.power td{padding:7px 8px;border-bottom:1px solid rgba(241,236,226,.07);text-align:right;font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.power td:first-child{font-family:var(--body);font-size:15.5px;font-weight:600}
+table.power tr{cursor:pointer}
+table.power tr.on td{background:rgba(241,236,226,.07)}
+table.power tbody tr:hover td{background:rgba(241,236,226,.05)}
+.who{display:inline-flex;align-items:center;gap:8px}
+.who i{width:10px;height:10px;border-radius:2px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.pos{color:var(--win)} .neg{color:var(--loss)}
+.chart{position:relative;border:1px solid var(--line);border-radius:8px;background:var(--steel);padding:10px 10px 6px;min-width:0}
+.chart svg{display:block;width:100%;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:4px 6px}
+.legend button{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px;padding:3px 8px;border-radius:5px;border:1px solid var(--line);color:var(--chalk)}
+.legend button i{width:14px;height:3px;border-radius:2px}
+.legend button.off{opacity:.4}
+.legend button:focus-visible{outline:1px solid var(--hazard)}
+.tip{position:absolute;pointer-events:none;background:#0b0d12;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:13.5px;line-height:1.35;white-space:nowrap;z-index:2;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+.tip .t{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--chalk-dim);margin-bottom:3px}
+.tip .r{display:flex;align-items:center;gap:7px}
+.tip .r i{width:8px;height:8px;border-radius:2px}
+.tip .r span{margin-left:auto;padding-left:14px;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+table.grid{border-collapse:separate;border-spacing:3px;width:100%;min-width:520px}
+table.grid th{font-family:var(--mono);font-size:10px;color:var(--chalk-dim);font-weight:500;padding:2px 4px}
+table.grid th.tn{text-align:left;font-family:var(--body);font-size:14.5px;color:var(--chalk);font-weight:600;white-space:nowrap}
+table.grid td{text-align:center;border-radius:4px;padding:6px 2px;font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums;line-height:1.15}
+table.grid td small{display:block;font-size:9.5px;opacity:.8}
+.scale{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--chalk-dim)}
+.scale i{display:inline-block;width:18px;height:10px;border-radius:2px}
+/* awards + forecast */
+.awards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.award{border:1px solid var(--line);border-left:4px solid var(--tc);border-radius:8px;padding:11px 13px;background:var(--steel);min-width:0}
+.award .k{font-family:var(--display);font-size:12.5px;letter-spacing:.03em;color:var(--hazard)}
+.award .n{font-size:18px;font-weight:700;margin:3px 0 1px;line-height:1.1}
+.award .d{font-size:14.5px;color:var(--chalk-dim);line-height:1.3}
+table.swap td{font-size:12.5px;color:var(--chalk)}
+table.swap td.me{outline:2px solid var(--chalk);outline-offset:-2px}
+table.swap th.cn{font-family:var(--body);font-size:13px;color:var(--chalk-dim);white-space:nowrap}
+.odds{display:grid;gap:6px}
+.orow{display:grid;grid-template-columns:minmax(150px,1.2fr) 70px 1fr 1fr 1fr;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--steel);cursor:pointer}
+.orow.on{border-color:var(--chalk)}
+.orow.head{background:none;border:none;padding:0 10px;cursor:default}
+.orow.head span{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--chalk-dim)}
+.orow .nm{font-weight:600;font-size:16px;line-height:1.1;min-width:0}
+.orow .nm small{display:block;font-weight:400;font-size:13px;color:var(--chalk-dim)}
+.orow .pr{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.meter{display:grid;gap:3px}
+.meter .ml{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--chalk-dim)}
+.meter b{font-family:var(--mono);font-size:14px;font-weight:500;font-variant-numeric:tabular-nums}
+.meter .bar{height:6px;border-radius:3px;background:rgba(241,236,226,.08);overflow:hidden}
+.meter .bar i{display:block;height:100%;border-radius:3px}
+.must{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.mcard{border:1px solid var(--line);border-top:3px solid var(--tc);border-radius:8px;padding:11px 13px;background:var(--steel)}
+.mcard .n{font-weight:700;font-size:16.5px}
+.mcard .g{font-family:var(--display);font-size:15px;margin:4px 0 6px}
+.mcard .g span{color:var(--chalk-dim);font-family:var(--body);font-size:14px}
+.mcard .sp{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mcard .sp div{border-radius:6px;padding:6px 8px;background:rgba(241,236,226,.05)}
+.mcard .sp small{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--chalk-dim)}
+.mcard .sp b{font-family:var(--mono);font-size:15px;font-weight:500}
+.mcard .sw{font-size:14px;color:var(--chalk-dim);margin-top:6px}
+.duels{display:grid;gap:8px}
+.duel{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--steel)}
+.duel .row{display:flex;justify-content:space-between;gap:10px;font-weight:600;font-size:15.5px}
+.duel .row span:last-child{text-align:right}
+.duel .split{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:7px 0 5px;gap:2px}
+.duel .pct{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12.5px;color:var(--chalk-dim);font-variant-numeric:tabular-nums}
+@media (max-width:640px){.orow{grid-template-columns:1fr 1fr 1fr;row-gap:8px}.orow .nm{grid-column:1/-1}.orow .pr{display:none}.orow.head{display:none}}
+/* splash */
+#splash{position:fixed;inset:0;z-index:20;overflow-y:auto;background:
+  radial-gradient(120% 70% at 50% 0%,rgba(255,244,214,.16),transparent 60%),
+  conic-gradient(from 160deg at 12% -10%,transparent 0 6deg,rgba(255,244,214,.10) 10deg 16deg,transparent 22deg),
+  conic-gradient(from 184deg at 88% -10%,transparent 0 6deg,rgba(255,244,214,.10) 10deg 16deg,transparent 22deg),
+  linear-gradient(180deg,#121624 0%,#0d0f14 55%,#1e140b 100%);
+  padding-top:calc(env(safe-area-inset-top,0px) + 28px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 28px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#splash .in{max-width:960px;margin:0 auto;display:grid;gap:22px;justify-items:center;text-align:center}
+#splash .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--hazard)}
+#splash .mast{position:relative;padding:6px 0 4px;width:100%}
+#splash .mast::before{content:"";position:absolute;left:0;right:0;top:50%;height:clamp(18px,3vw,26px);transform:translateY(-50%) skewY(-2deg);
+  background:repeating-linear-gradient(-45deg,var(--hazard) 0 14px,#111 14px 28px);opacity:.9;z-index:0}
+#splash h1{position:relative;z-index:1;margin:0;font-family:var(--display);font-weight:400;line-height:.88;font-size:clamp(46px,12vw,124px);color:var(--chalk);
+  text-shadow:0 4px 0 #000,0 8px 0 rgba(0,0,0,.45),0 0 40px rgba(255,106,43,.35);transform:skewY(-2deg);text-wrap:balance}
+#splash h1 span{display:block;color:var(--flare)}
+#splash .strap{font-size:clamp(17px,2.6vw,22px);color:var(--chalk);max-width:44ch;line-height:1.3;margin:0}
+#splash .strap b{color:var(--hazard);font-weight:700}
+.lineup{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+.dcard{all:unset;cursor:pointer;box-sizing:border-box;text-align:left;position:relative;border-radius:10px;padding:12px 14px 12px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01));border:1px solid var(--line);border-top:4px solid var(--tc);display:grid;gap:3px;min-width:0;transition:transform .15s}
+.dcard:hover{transform:translateY(-2px)}
+.dcard:focus-visible{outline:2px solid var(--hazard);outline-offset:2px}
+.dcard .rk{position:absolute;top:8px;right:12px;font-family:var(--display);font-size:22px;color:rgba(241,236,226,.18)}
+.dcard .n{font-family:var(--display);font-size:clamp(13px,1.7vw,16px);line-height:1.05;padding-right:28px}
+.dcard .t{font-size:14px;color:var(--chalk-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dcard .st{display:flex;gap:12px;margin-top:6px;font-family:var(--mono);font-size:12px;color:var(--chalk-dim);font-variant-numeric:tabular-nums}
+.dcard .st b{display:block;font-size:17px;color:var(--chalk);font-weight:500}
+.ticker{width:100%;overflow:hidden;border-block:1px solid var(--line);padding:9px 0;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.ticker .track{display:inline-flex;gap:40px;white-space:nowrap;animation:tick 60s linear infinite;font-size:16px}
+.ticker .track span b{font-family:var(--display);font-weight:400;font-size:12.5px;color:var(--hazard);margin-right:8px;letter-spacing:.03em}
+@keyframes tick{to{transform:translateX(-50%)}}
+.ctas{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.ctas button{all:unset;cursor:pointer;font-family:var(--display);font-size:15px;padding:13px 20px;border-radius:8px;border:1px solid var(--line);color:var(--chalk)}
+.ctas button.go{background:var(--hazard);color:#191204;border-color:var(--hazard);font-size:17px;padding:14px 28px;box-shadow:0 6px 0 #8a5d08}
+.ctas button.go:active{transform:translateY(3px);box-shadow:0 3px 0 #8a5d08}
+.ctas button:focus-visible{outline:2px solid var(--chalk);outline-offset:3px}
+#splash .fine{font-size:13px;color:var(--chalk-dim);margin:0}
+@media (max-width:640px){.lineup{grid-template-columns:repeat(2,1fr)}.dcard .st{gap:9px}}
+@media (prefers-reduced-motion:reduce){.ticker{overflow-x:auto}.ticker .track{animation:none}}
+#load{position:fixed;inset:0;display:grid;place-items:center;font-family:var(--display);font-size:20px;color:var(--chalk-dim);z-index:9}
+@media (max-width:640px){
+  #crest{max-width:calc(100vw - 32px)}
+  #crest p{display:none}
+  #table{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 142px);width:auto;padding:6px 10px}
+  #table ol,#table h2 small,#table h2 .lbl{display:none}
+  #table.open ol{display:grid;margin-top:4px}
+  #table.open{width:236px}
+  #table h2{margin:0}
+  #tableToggle{display:inline;all:unset;cursor:pointer;font-family:var(--display);font-size:13px;color:var(--hazard)}
+  #ledger{bottom:calc(env(safe-area-inset-bottom,0px) + 142px)}
+  #ledger dd{font-size:14px}
+  .tag{padding:2px 6px 3px}
+  .tag b{font-size:10.5px}
+  .tag span{font-size:9.5px}
+}
+@media (max-width:860px){.two{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){#weeks button.live::after{animation:none}}
+body.dashOn #table,body.dashOn #ledger,body.dashOn #crest,body.dashOn .tag{display:none!important}
+</style>
+
+<div id="stage"></div>
+<div id="load">Firing up the engines…</div>
+<div id="splash" role="dialog" aria-label="Welcome">
+  <div class="in">
+    <div class="eyebrow">Lord Grigass &amp; the Merrymen · 2026 season</div>
+    <div class="mast"><h1>Merrymen <span>Mudbowl</span></h1></div>
+    <p class="strap" id="spStrap"></p>
+    <div class="lineup" id="spLineup"></div>
+    <div class="ticker" aria-label="Season facts"><div class="track" id="spTicker"></div></div>
+    <div class="ctas"><button class="go" id="spGo">Enter the arena</button><button id="spStats">Stats</button><button id="spFc">Forecast</button></div>
+    <p class="fine" id="spFine"></p>
+  </div>
+</div>
+
+<div class="hud" id="crest">
+  <div class="eyebrow">Lord Grigass &amp; the Merrymen · 2026</div>
+  <h1>Merrymen Mudbowl</h1>
+  <p>Each truck sits on a stack of crushed cars, one per win. The glowing pillar is points scored. Tires fly from each week's winner to the loser. Drag to look around, tap a truck.</p>
+</div>
+
+<div class="hud" id="table">
+  <h2><span class="lbl">Standings</span><button id="tableToggle" aria-expanded="false">Standings ▾</button><small id="thru"></small></h2>
+  <ol id="rows"></ol>
+</div>
+
+<div class="hud" id="ledger" hidden>
+  <header>
+    <div><h3 id="lgName"></h3><div class="handle" id="lgHandle"></div></div>
+    <button class="x" id="lgClose" aria-label="Close driver card">×</button>
+  </header>
+  <dl>
+    <div><dt>Record</dt><dd id="lgRec"></dd></div>
+    <div><dt>Pts for</dt><dd id="lgPF"></dd></div>
+    <div><dt>Pts vs</dt><dd id="lgPA"></dd></div>
+    <div><dt>Streak</dt><dd id="lgStk"></dd></div>
+  </dl>
+  <svg class="bars" id="lgBars" viewBox="0 0 520 84" preserveAspectRatio="none" aria-label="Weekly scores"></svg>
+  <p class="note" id="lgNote"></p>
+</div>
+
+<div id="dash" hidden>
+  <div class="wrap" id="wStats">
+    <div class="head">
+      <div><h2>Stats</h2><p id="dSub"></p></div>
+    </div>
+    <section aria-label="Season records"><div class="tiles" id="dTiles"></div></section>
+    <section>
+      <h3>Mudbowl awards</h3>
+      <div class="awards" id="dAwards"></div>
+    </section>
+    <section>
+      <h3>Power rankings</h3>
+      <p class="sub">All-play is the record each team would have if it played everyone every week. Luck is actual wins minus the wins that all-play record predicts.</p>
+      <div class="scroll"><table class="power" id="dPower"></table></div>
+    </section>
+    <section>
+      <h3>Weekly scoring</h3>
+      <div class="legend" id="dLegend"></div>
+      <div class="chart" id="dLine"></div>
+    </section>
+    <div class="two">
+      <section>
+        <h3>Points for vs. points against</h3>
+        <p class="sub">Lines mark the league averages. Bottom right is scoring a lot and facing soft opponents.</p>
+        <div class="chart" id="dScatter"></div>
+      </section>
+      <section>
+        <h3>Weekly finish</h3>
+        <p class="sub">Each cell is where that score ranked among all six that week, with the matchup result.</p>
+        <div class="scroll"><table class="grid" id="dGrid"></table></div>
+        <div class="scale"><span>1st</span><i style="background:rgba(245,176,33,.85)"></i><i style="background:rgba(245,176,33,.6)"></i><i style="background:rgba(245,176,33,.4)"></i><i style="background:rgba(245,176,33,.24)"></i><i style="background:rgba(245,176,33,.13)"></i><i style="background:rgba(245,176,33,.06)"></i><span>6th</span></div>
+      </section>
+    </div>
+    <section>
+      <h3>Schedule swap</h3>
+      <p class="sub">The record each team would have with someone else's schedule. Read across a row: that team's scores, played against the column team's opponents. The outlined cell is the real record.</p>
+      <div class="scroll"><table class="grid swap" id="dSwap"></table></div>
+    </section>
+  </div>
+
+  <div class="wrap" id="wFc" hidden>
+    <div class="head">
+      <div><h2>Forecast</h2><p id="fSub"></p></div>
+    </div>
+    <section>
+      <h3>Title odds</h3>
+      <p class="sub">Every team makes the six-team playoff. Seeds 1 and 2 skip week 15, so the bye is the real prize. Each week's scores come from a team's season average, pulled toward the league average, with the league's week-to-week swing.</p>
+      <div class="odds" id="fOdds"></div>
+    </section>
+    <section>
+      <h3>Must-win games</h3>
+      <p class="sub">For each driver, the remaining game that moves their bye odds the most. For drivers with no real shot at a bye, it's the game that moves their title odds the most.</p>
+      <div class="must" id="fMust"></div>
+    </section>
+    <div class="two">
+      <section>
+        <h3 id="fNextH">This week</h3>
+        <div class="duels" id="fNext"></div>
+      </section>
+      <section>
+        <h3>How the odds moved</h3>
+        <div class="legend" id="fLegend"></div>
+        <div class="chart" id="fTrend"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="hud" id="scrub">
+  <div class="row"><div class="wk" id="wkLabel">Week 7</div>
+    <div class="seg" role="group" aria-label="View"><button id="vArena" aria-pressed="true">Arena</button><button id="vDash" aria-pressed="false">Stats</button><button id="vFc" aria-pressed="false">Forecast</button></div></div>
+  <div id="weeks" role="group" aria-label="Choose week"></div>
+  <div class="hint" id="wkHint"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+/* ---------- League snapshot (Sleeper API, Sat Oct 31 2026 ~10:45 AM ET) ---------- */
+/* DATA START — refreshed from Sleeper */
+const SNAP = "Sat Oct 31, 10:45 AM";
+const LIVE_WEEK = 8;          // current NFL week in Sleeper (in progress)
+const REG_SEASON_END = 14;    // playoffs start week 15: 6 teams, seeds 1-2 get byes
+const LAST_CHAMP = 5;         // latest_league_winner_roster_id
+const TEAMS = {
+  1:{name:"Rage Cage Kyle",             short:"Kyle",      team:"Beaker's Secret Potion",   handle:"TROKNASTY · commish", color:"#cfc9bb", theme:"spots"},
+  2:{name:"Max Pelle-D",                short:"Max",       team:"Joe Scarey",               handle:"apelle",              color:"#f0a020", theme:"spikes"},
+  3:{name:"Whip-It-Out Arry",           short:"Arry",      team:"TDsTease",                 handle:"TDsTease",            color:"#5b8ff0", theme:"royal"},
+  4:{name:"Dragon Lord Grigy Grigs",    short:"Grigs",     team:"GrigasM",                  handle:"GrigasM",             color:"#3db37a", theme:"dragon"},
+  5:{name:"Captain Byronious the Cursed",short:"Byronious",team:"Beaker's SecretCommotion",handle:"Byronious0726",       color:"#d93c5c", theme:"pirate"},
+  6:{name:"Dawg Pound Dilly Willy",     short:"Dilly",     team:"Dill Went Off",            handle:"DillWentOff",         color:"#9b6a3e", theme:"dawg"}
+};
+const WEEKS = {
+  1:[[1,165.90,6,137.12],[3,162.06,5,133.50],[2,196.90,4,159.86]],
+  2:[[1,124.42,5,145.98],[4,120.92,6,149.48],[2,196.76,3,81.18]],
+  3:[[1,148.24,4,152.56],[2,143.64,5,137.28],[3,136.68,6,132.20]],
+  4:[[1,150.96,2,115.28],[3,158.52,4,136.02],[5,166.16,6,135.42]],
+  5:[[1,168.48,3,133.00],[2,134.54,6,134.22],[4,140.26,5,157.46]],
+  6:[[1,130.28,6,74.68],[3,80.70,5,123.80],[2,154.44,4,107.80]],
+  7:[[1,141.48,5,131.94],[4,90.40,6,128.00],[2,144.58,3,158.58]],
+  8:[[1,0.00,4,0.00],[2,20.20,5,0.00],[3,8.80,6,14.30]]
+};
+const SCHEDULE = { // future weeks, pairs only
+  9:[[1,2],[3,4],[5,6]], 10:[[1,3],[2,6],[4,5]], 11:[[1,6],[3,5],[2,4]],
+  12:[[1,5],[4,6],[2,3]], 13:[[1,4],[2,5],[3,6]], 14:[[1,2],[3,4],[5,6]]
+};
+/* DATA END */
+const LAST = LIVE_WEEK-1;
+const IDS=[1,2,3,4,5,6];
+
+function statsThrough(w){
+  const s={}; IDS.forEach(id=>s[id]={w:0,l:0,t:0,pf:0,pa:0,res:[],scores:[]});
+  for(let k=1;k<=w;k++){
+    WEEKS[k].forEach(([a,pa,b,pb])=>{
+      s[a].pf+=pa; s[b].pf+=pb; s[a].pa+=pb; s[b].pa+=pa;
+      s[a].scores[k]=pa; s[b].scores[k]=pb;
+      if(k===LIVE_WEEK) return;
+      if(pa>pb){s[a].w++;s[b].l++;s[a].res.push("W");s[b].res.push("L");}
+      else if(pb>pa){s[b].w++;s[a].l++;s[b].res.push("W");s[a].res.push("L");}
+      else{s[a].t++;s[b].t++;s[a].res.push("T");s[b].res.push("T");}
+    });
+  }
+  IDS.forEach(id=>{const r=s[id].res;let n=0;const last=r[r.length-1];for(let i=r.length-1;i>=0&&r[i]===last;i--)n++;s[id].streak=last?n+last:"—";});
+  const order=IDS.slice().sort((x,y)=>(s[y].w-s[x].w)||(s[y].pf-s[x].pf));
+  order.forEach((id,i)=>s[id].rank=i+1);
+  return {s,order};
+}
+
+/* ---------- scene ---------- */
+if(!window.THREE){document.getElementById('load').textContent="The 3D library didn't load. Reload to try again.";return;}
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+document.getElementById('stage').appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+const SKY=new THREE.Color('#0e1220');
+scene.background=SKY; scene.fog=new THREE.Fog(SKY,70,150);
+const camera=new THREE.PerspectiveCamera(48,1,0.1,400);
+const narrow=()=>innerWidth<640;
+camera.position.set(0,narrow()?40:30,narrow()?62:48);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.target.set(0,3,0); controls.enableDamping=true; controls.dampingFactor=.08;
+controls.maxPolarAngle=Math.PI*0.47; controls.minDistance=14; controls.maxDistance=110; controls.enablePan=false;
+controls.autoRotate=!reduce; controls.autoRotateSpeed=0.4;
+
+scene.add(new THREE.HemisphereLight('#a9b8e0','#2a1d10',0.5));
+const key=new THREE.DirectionalLight('#fff4dd',0.95);
+key.position.set(-25,55,30); key.castShadow=true; key.shadow.mapSize.set(2048,2048);
+Object.assign(key.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:140});
+scene.add(key);
+
+const M=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.7},o));
+const rnd=(()=>{let s=11;return()=>(s=(s*16807)%2147483647)/2147483647;})();
+
+// arena floor: dirt with vertex color mottling
+const R_RING=20, ARENA=34;
+{const g=new THREE.CircleGeometry(ARENA,96,0,Math.PI*2);g.rotateX(-Math.PI/2);
+ const p=g.attributes.position,cols=new Float32Array(p.count*3),c=new THREE.Color();
+ for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i);const n=Math.sin(x*.7)*Math.cos(z*.6)+Math.sin(x*.21+z*.33);
+   c.setHSL(.075,.45,.17+n*.025+rnd()*.03);cols.set([c.r,c.g,c.b],i*3);}
+ g.setAttribute('color',new THREE.BufferAttribute(cols,3));
+ const dirt=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));dirt.receiveShadow=true;scene.add(dirt);
+ const wall=new THREE.Mesh(new THREE.CylinderGeometry(ARENA+.4,ARENA+.4,1.6,96,1,true),M('#c9c4b8',{side:THREE.DoubleSide}));wall.position.y=.8;scene.add(wall);
+ // hazard stripe along the wall
+ const cv=document.createElement('canvas');cv.width=256;cv.height=16;const x=cv.getContext('2d');
+ for(let i=0;i<16;i++){x.fillStyle=i%2?'#111':'#f5b021';x.beginPath();x.moveTo(i*16,16);x.lineTo(i*16+8,0);x.lineTo(i*16+24,0);x.lineTo(i*16+16,16);x.fill();}
+ const tx=new THREE.CanvasTexture(cv);tx.wrapS=THREE.RepeatWrapping;tx.repeat.set(24,1);
+ const stripe=new THREE.Mesh(new THREE.CylinderGeometry(ARENA+.35,ARENA+.35,.35,96,1,true),new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide}));stripe.position.y=1.45;scene.add(stripe);}
+
+// grandstands + crowd
+{const tiers=7;for(let t=0;t<tiers;t++){const r0=ARENA+1.5+t*2.2,y=1.6+t*1.5;
+  const step=new THREE.Mesh(new THREE.CylinderGeometry(r0+2.2,r0+2.2,1.5,96,1,true),M('#2a2f3a',{side:THREE.DoubleSide}));step.position.y=y-.75;scene.add(step);
+  const top=new THREE.Mesh(new THREE.RingGeometry(r0,r0+2.2,96),M('#3a404c'));top.rotation.x=-Math.PI/2;top.position.y=y;scene.add(top);}
+ const N=1800,body=new THREE.BoxGeometry(.5,.8,.4);body.translate(0,.4,0);
+ const crowd=new THREE.InstancedMesh(body,new THREE.MeshStandardMaterial({roughness:.9}),N);
+ const m=new THREE.Matrix4(),c=new THREE.Color();crowd.userData.base=[];
+ const fan=['#e2582a','#1d3a6e','#f1ece2','#f5b021','#7a1f1f','#2b6b3a','#5a3a8a','#222'];
+ for(let i=0;i<N;i++){const t=Math.floor(rnd()*tiers),a=rnd()*Math.PI*2,r=ARENA+2.4+t*2.2+rnd()*1.2,y=1.6+t*1.5;
+   m.makeRotationY(-a);m.setPosition(Math.cos(a)*r,y,Math.sin(a)*r);crowd.setMatrixAt(i,m);c.set(fan[(rnd()*fan.length)|0]);crowd.setColorAt(i,c);crowd.userData.base.push([Math.cos(a)*r,y,Math.sin(a)*r,a,rnd()*6]);}
+ scene.add(crowd);window.__crowd=crowd;}
+const crowd=window.__crowd;
+
+// floodlight towers
+{[45,135,225,315].forEach(d=>{const a=d*Math.PI/180,r=ARENA+18;const g=new THREE.Group();g.position.set(Math.cos(a)*r,0,Math.sin(a)*r);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.35,.5,26,8),M('#555b66',{metalness:.6}));pole.position.y=13;
+  const rack=new THREE.Mesh(new THREE.BoxGeometry(5,2.6,.6),M('#333'));rack.position.y=27;rack.lookAt(0,0,0);rack.position.y=27;
+  const lamps=new THREE.Mesh(new THREE.PlaneGeometry(4.4,2),new THREE.MeshBasicMaterial({color:'#fffbe6'}));lamps.position.y=27;lamps.lookAt(-g.position.x,-20,-g.position.z);
+  lamps.translateZ(.35);g.add(pole,rack,lamps);scene.add(g);
+  const sp=new THREE.SpotLight('#fff3d6',0.55,140,0.55,0.6,1);sp.position.set(g.position.x,27,g.position.z);sp.target.position.set(0,0,0);scene.add(sp,sp.target);});}
+
+// center: dirt jump with trophy
+const gold=M('#f2b632',{metalness:.85,roughness:.28,emissive:'#3a2600',emissiveIntensity:.6});
+const trophy=new THREE.Group();
+{const mound=new THREE.Mesh(new THREE.CylinderGeometry(3.2,7.5,3,24),M('#5a3a1e',{roughness:1,flatShading:true}));mound.position.y=1.5;mound.castShadow=mound.receiveShadow=true;
+ const pts=[[0,0],[1.4,0],[1.4,.3],[.5,.6],[.3,1.4],[.45,2],[1.5,2.6],[1.85,3.6],[1.95,4.5],[1.8,4.5],[1.6,3.7],[1.2,2.9],[.3,2.4],[0,2.4]].map(p=>new THREE.Vector2(p[0],p[1]));
+ const cup=new THREE.Mesh(new THREE.LatheGeometry(pts,36),gold);cup.position.y=3;cup.castShadow=true;
+ [-1,1].forEach(sx=>{const h=new THREE.Mesh(new THREE.TorusGeometry(.8,.13,10,24,Math.PI*1.2),gold);h.position.set(sx*2,6.5,0);h.rotation.z=sx>0?-Math.PI*.6:Math.PI*1.6;trophy.add(h);});
+ trophy.add(cup);scene.add(mound,trophy);}
+const trophyLight=new THREE.PointLight('#ffcf6b',1.2,26,2);trophyLight.position.set(0,10,0);scene.add(trophyLight);
+
+// ramps between truck spots + junked-car piles at the walls
+function ramp(x,z,rot,s=1){const sh=new THREE.Shape();sh.moveTo(0,0);sh.lineTo(4.5,0);sh.lineTo(4.5,1.8);sh.lineTo(0,0);
+  const g=new THREE.ExtrudeGeometry(sh,{depth:3,bevelEnabled:false});g.translate(-2.25,0,-1.5);
+  const m=new THREE.Mesh(g,M('#5e3c1f',{roughness:1,flatShading:true}));m.position.set(x,0,z);m.rotation.y=rot;m.scale.setScalar(s);m.castShadow=m.receiveShadow=true;scene.add(m);}
+for(let i=0;i<6;i++){const a=(i+.5)/6*Math.PI*2-Math.PI/2;ramp(Math.cos(a)*R_RING,Math.sin(a)*R_RING,-a,.9);}
+const junkColors=['#7d2b2b','#2d4f7a','#6b6b6b','#3c6b44','#8a6a2a','#4a3a5a','#9a9a9a'];
+function junkCar(color){const g=new THREE.Group();const b=new THREE.Mesh(new THREE.BoxGeometry(3.4,.5,1.7),M(color,{metalness:.4,roughness:.6,flatShading:true}));
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(1.6,.2,1.5),M(color,{metalness:.4,roughness:.6}));roof.position.set(-.2,.33,0);
+  const glass=new THREE.Mesh(new THREE.BoxGeometry(1.5,.12,1.55),M('#1a2230',{metalness:.2,roughness:.3}));glass.position.set(-.2,.24,0);
+  g.add(b,glass,roof);g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});return g;}
+for(let i=0;i<5;i++){const a=rnd()*Math.PI*2,r=ARENA-4;for(let k=0;k<2+((rnd()*3)|0);k++){const c=junkCar(junkColors[(rnd()*7)|0]);c.position.set(Math.cos(a)*r+(rnd()-.5),.25+k*.5,Math.sin(a)*r+(rnd()-.5));c.rotation.y=rnd()*3;scene.add(c);}}
+
+/* ---------- trucks ---------- */
+function canvasTex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;}
+const spotsTex=canvasTex(256,128,(x,w,h)=>{x.fillStyle='#f4f1ea';x.fillRect(0,0,w,h);x.fillStyle='#111';
+  let s=3;const r=()=>(s=(s*16807)%2147483647)/2147483647;for(let i=0;i<46;i++){x.beginPath();x.ellipse(r()*w,r()*h,4+r()*9,3+r()*7,r()*3,0,7);x.fill();}});
+const skullTex=canvasTex(128,80,(x,w,h)=>{x.fillStyle='#0b0b0b';x.fillRect(0,0,w,h);x.fillStyle='#eee';x.strokeStyle='#eee';x.lineWidth=7;x.lineCap='round';
+  x.beginPath();x.moveTo(36,64);x.lineTo(92,22);x.moveTo(36,22);x.lineTo(92,64);x.stroke();
+  x.beginPath();x.arc(64,36,17,0,7);x.fill();x.fillRect(55,44,18,12);x.fillStyle='#0b0b0b';x.beginPath();x.arc(57,34,4.5,0,7);x.arc(71,34,4.5,0,7);x.fill();});
+const royalTex=canvasTex(128,80,(x,w,h)=>{x.fillStyle='#173a7a';x.fillRect(0,0,w,h);x.fillStyle='#e8c14a';
+  for(let i=0;i<3;i++){const cx=26+i*38,cy=40;x.beginPath();x.moveTo(cx,cy-16);x.quadraticCurveTo(cx+8,cy-4,cx,cy+12);x.quadraticCurveTo(cx-8,cy-4,cx,cy-16);x.fill();x.fillRect(cx-9,cy,18,3);}});
+
+const tireGeo=new THREE.CylinderGeometry(1.15,1.15,1,18);tireGeo.rotateX(Math.PI/2);
+const treadGeo=new THREE.TorusGeometry(1.08,.14,4,18);
+const rimGeo=new THREE.CylinderGeometry(.55,.55,1.04,12);rimGeo.rotateX(Math.PI/2);
+
+function makeTruck(id){
+  const T=TEAMS[id],th=T.theme,col=new THREE.Color(T.color),G=new THREE.Group(),body=new THREE.Group();
+  const bodyMat={spots:M('#ffffff',{map:spotsTex,roughness:.5}),spikes:M('#2b2e33',{metalness:.6,roughness:.4}),royal:M('#7cc0ec',{roughness:.45}),
+    dragon:M('#3f9a3a',{roughness:.5,flatShading:true}),pirate:M('#141414',{roughness:.5}),dawg:M('#8e5a2b',{roughness:.65})}[th];
+  const rimCol={spots:'#c42a2a',spikes:'#f08a24',royal:'#e8c14a',dragon:'#e0602a',pirate:'#c9a54a',dawg:'#c42a2a'}[th];
+  // tires
+  const wheels=[];
+  [[1.9,1.55],[1.9,-1.55],[-1.9,1.55],[-1.9,-1.55]].forEach(([x,z],i)=>{const w=new THREE.Group();
+    let tc='#1a1a1a';if(th==='pirate'&&i===1)tc='#9a1f1f';if(th==='pirate'&&i===3)tc='#8d8d8d';
+    const t=new THREE.Mesh(tireGeo,M(tc,{roughness:.95}));const tr1=new THREE.Mesh(treadGeo,M(tc,{roughness:1}));tr1.position.z=.32;const tr2=tr1.clone();tr2.position.z=-.32;
+    const r=new THREE.Mesh(rimGeo,M(rimCol,{metalness:.7,roughness:.3}));w.add(t,tr1,tr2,r);w.position.set(x,1.15,z);w.traverse(o=>o.castShadow=true);G.add(w);wheels.push(w);});
+  // chassis + shocks
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(4.2,.3,1.6),M('#2b2b2b',{metalness:.5}));frame.position.y=1.5;G.add(frame);
+  [[1.9,.9],[1.9,-.9],[-1.9,.9],[-1.9,-.9]].forEach(([x,z])=>{const s=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,1.4,6),M('#c0c4cc',{metalness:.8,roughness:.3}));s.position.set(x*.8,2,z);s.rotation.x=z>0?-.25:.25;G.add(s);});
+  // body shell
+  const shell=new THREE.Mesh(new THREE.BoxGeometry(4.6,1.1,2.6),bodyMat);shell.position.y=2.75;
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(1.8,.9,2.2),bodyMat);cab.position.set(-.4,3.7,0);
+  const glass=new THREE.Mesh(new THREE.BoxGeometry(1.84,.5,2.0),M('#10161f',{metalness:.3,roughness:.2}));glass.position.set(-.35,3.75,0);
+  body.add(shell,cab,glass);
+  const add=(geo,mat,x,y,z,rx=0,ry=0,rz=0)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.rotation.set(rx,ry,rz);body.add(m);return m;};
+  const teethMat=M('#f5f2ea',{roughness:.4}), mouthMat=M('#5a0d12');
+  if(th==='spots'||th==='dawg'||th==='dragon'){ // snarling grille
+    add(new THREE.BoxGeometry(.12,.55,2.3),mouthMat,2.31,2.6,0);
+    for(let i=0;i<7;i++){add(new THREE.ConeGeometry(.13,.32,4),teethMat,2.36,2.82,-1+i*.33,Math.PI,0,0);add(new THREE.ConeGeometry(.13,.3,4),teethMat,2.36,2.38,-.85+i*.28);}
+  }
+  if(th==='spots'||th==='dawg'){
+    add(new THREE.SphereGeometry(.42,12,10),M('#0c0c0c',{roughness:.3}),2.35,3.35,0);
+    add(new THREE.BoxGeometry(.06,.9,.5),M('#e2687a'),2.4,2.15,.35,0,0,.25);
+    const earMat=M(th==='spots'?'#121212':'#5c3716',{side:THREE.DoubleSide});
+    [-1,1].forEach(s=>add(new THREE.BoxGeometry(.9,.12,.7),earMat,-.4,4.0,s*1.2,s*.9,0,.2));
+    add(new THREE.CylinderGeometry(.07,.12,1.3,6),earMat,-2.6,3.4,0,0,0,-.9);
+  }
+  if(th==='dawg'){ // giant bone on the roof rack
+    const bm=M('#efe3c4');add(new THREE.CylinderGeometry(.14,.14,1.5,8),bm,-.4,4.45,0,Math.PI/2);
+    [-1,1].forEach(s=>{add(new THREE.SphereGeometry(.2,8,8),bm,-.4,4.45,s*.78+.12);add(new THREE.SphereGeometry(.2,8,8),bm,-.4,4.45,s*.78-.12);});
+  }
+  if(th==='dragon'){
+    for(let i=0;i<8;i++)add(new THREE.ConeGeometry(.22,.7,5),M('#e0602a',{flatShading:true}),1.8-i*.6,i<3?3.55:(i<5?4.4:3.55),0);
+    const wing=new THREE.Shape();wing.moveTo(0,0);wing.lineTo(2.6,1.6);wing.lineTo(2.2,.4);wing.lineTo(3,.2);wing.lineTo(1.4,-.3);wing.lineTo(0,0);
+    const wg=new THREE.ShapeGeometry(wing);const wm=M('#2fb3a0',{side:THREE.DoubleSide,roughness:.5});
+    [-1,1].forEach(s=>{const w=add(wg,wm,-1,3.2,s*1.3,s*-Math.PI/2.4,0,0);w.rotation.order='YXZ';w.rotation.y=Math.PI;w.userData.wing=s;});
+    [-1,1].forEach(s=>add(new THREE.ConeGeometry(.16,.8,5),M('#d8cfa8'),2.0,3.55,s*.8,0,0,-.6));
+    add(new THREE.SphereGeometry(.14,8,8),new THREE.MeshBasicMaterial({color:'#ffd23a'}),2.3,3.15,.7);
+    add(new THREE.SphereGeometry(.14,8,8),new THREE.MeshBasicMaterial({color:'#ffd23a'}),2.3,3.15,-.7);
+  }
+  if(th==='pirate'){
+    add(new THREE.BoxGeometry(4.64,.18,2.64),M('#8a1d22'),0,2.25,0);
+    add(new THREE.CylinderGeometry(.18,.24,1.8,10),M('#b9bcc2',{metalness:.8,roughness:.25}),2.5,3.0,.6,0,0,Math.PI/2);
+    add(new THREE.CylinderGeometry(.07,.07,3.2,6),M('#3a2a1c'),-1.6,5.0,0);
+    const flag=add(new THREE.PlaneGeometry(1.7,1.05,8,1),new THREE.MeshStandardMaterial({map:skullTex,side:THREE.DoubleSide}),-.75,6.0,0);flag.userData.flag=true;
+    add(new THREE.ConeGeometry(.9,.5,3),M('#111'),-.4,4.4,0,0,Math.PI/6,0); // tricorn
+  }
+  if(th==='royal'){
+    add(new THREE.BoxGeometry(4.64,.16,2.64),M('#e8c14a',{metalness:.7,roughness:.3}),0,3.32,0);
+    const crown=new THREE.Group();const cg=M('#f2c645',{metalness:.85,roughness:.25,emissive:'#3a2800',emissiveIntensity:.5});
+    const band=new THREE.Mesh(new THREE.CylinderGeometry(.7,.7,.4,16,1,true),cg);crown.add(band);
+    for(let i=0;i<6;i++){const a=i/6*Math.PI*2;const p=new THREE.Mesh(new THREE.ConeGeometry(.16,.5,5),cg);p.position.set(Math.cos(a)*.7,.42,Math.sin(a)*.7);crown.add(p);
+      const gem=new THREE.Mesh(new THREE.SphereGeometry(.07,6,6),new THREE.MeshBasicMaterial({color:i%2?'#d1203a':'#2f6fe0'}));gem.position.set(Math.cos(a)*.71,0,Math.sin(a)*.71);crown.add(gem);}
+    crown.position.set(-.4,4.4,0);body.add(crown);
+    const whip=new THREE.CatmullRomCurve3([new THREE.Vector3(-1.2,4.2,.8),new THREE.Vector3(-1.6,6.2,1.2),new THREE.Vector3(-.4,7.6,1.6),new THREE.Vector3(1.0,7.1,1.2),new THREE.Vector3(1.4,6.0,.4)]);
+    const wm=add(new THREE.TubeGeometry(whip,40,.06,5),M('#1a1410',{roughness:.6}),0,0,0);wm.userData.whip=true;
+    add(new THREE.CylinderGeometry(.04,.04,2.4,5),M('#cfcfcf',{metalness:.7}),-1.9,4.6,-1.0);
+    const f=add(new THREE.PlaneGeometry(1.3,.8,6,1),new THREE.MeshStandardMaterial({map:royalTex,side:THREE.DoubleSide}),-1.25,5.45,-1.0);f.userData.flag=true;
+  }
+  if(th==='spikes'){
+    const sm=M('#c7cbd2',{metalness:.85,roughness:.25});
+    for(let i=0;i<11;i++)[-1,1].forEach(s=>add(new THREE.ConeGeometry(.12,.6,6),sm,-2.1+i*.42,3.45,s*1.15,s*.5,0,0));
+    for(let i=0;i<5;i++)add(new THREE.ConeGeometry(.14,.7,6),sm,-1.1+i*.32,4.45,0);
+    add(new THREE.BoxGeometry(4.64,.22,2.64),M('#f08a24',{emissive:'#5a2500',emissiveIntensity:.4}),0,2.3,0);
+    add(new THREE.BoxGeometry(4.64,.08,2.64),M('#f5c518'),0,3.12,0);
+    const face=add(new THREE.SphereGeometry(.75,12,10),sm,2.2,2.75,0);face.scale.set(.5,1,1);
+    [-1,1].forEach(s=>add(new THREE.SphereGeometry(.14,8,8),new THREE.MeshBasicMaterial({color:'#ff6a1a'}),2.6,2.95,s*.3));
+    [-1,1].forEach(s=>add(new THREE.CylinderGeometry(.13,.13,1.1,8),sm,1.3,3.6,s*.9,0,0,-.35));
+  }
+  body.traverse(o=>{if(o.isMesh){o.castShadow=true;}});
+  G.add(body);
+  G.userData={body,wheels};
+  return G;
+}
+
+const keepPos=id=>{const a=(id-1)/6*Math.PI*2-Math.PI/2;return new THREE.Vector3(Math.cos(a)*R_RING,0,Math.sin(a)*R_RING);};
+const rigs={}; const pickables=[];
+IDS.forEach(id=>{
+  const p=keepPos(id),rig=new THREE.Group();rig.position.copy(p);
+  rig.rotation.y=-Math.atan2(-p.z,-p.x);
+  const truck=makeTruck(id);rig.add(truck);
+  // stack of crushed cars (one per win)
+  const stack=[];for(let i=0;i<8;i++){const c=junkCar(junkColors[(id*3+i)%7]);c.scale.set(1.35,1,1.6);c.position.y=.25+i*.55;c.rotation.y=(rnd()-.5)*.5;c.visible=false;rig.add(c);stack.push(c);}
+  // points pillar
+  const col=new THREE.Color(TEAMS[id].color);
+  const pillarGeo=new THREE.CylinderGeometry(.32,.32,1,12);pillarGeo.translate(0,.5,0);
+  const pillar=new THREE.Mesh(pillarGeo,new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:.55,transparent:true,opacity:.85}));
+  const tangent=new THREE.Vector3(-p.z,0,p.x).normalize().multiplyScalar(4.2);
+  pillar.position.copy(p).add(tangent);
+  const cap=new THREE.Mesh(new THREE.SphereGeometry(.42,12,10),new THREE.MeshBasicMaterial({color:col}));cap.position.copy(pillar.position);
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(.7,.8,.25,12),M('#333'));pad.position.copy(pillar.position);
+  scene.add(rig,pillar,cap,pad);
+  truck.traverse(o=>{if(o.isMesh){o.userData.id=id;pickables.push(o);}});
+  stack.forEach(c=>c.traverse(o=>{if(o.isMesh){o.userData.id=id;pickables.push(o);}}));
+  rigs[id]={rig,truck,stack,pillar,cap,pos:p,col,lift:0,liftT:0,ph:0,pillarH:1,pillarT:1,wins:0,hop:0};
+});
+
+/* ---------- duels: a flying tire ---------- */
+function makeTire(){const g=new THREE.Group();const t=new THREE.Mesh(tireGeo,M('#1a1a1a',{roughness:.95}));const r=new THREE.Mesh(rimGeo,M('#cfcfcf',{metalness:.7}));g.add(t,r);g.scale.setScalar(.55);return g;}
+let duels=[];
+function buildDuels(w){
+  duels.forEach(d=>{scene.remove(d.tube,d.tire);d.tube.geometry.dispose();});duels=[];
+  WEEKS[w].forEach(([a,pa,b,pb])=>{
+    const live=w===LIVE_WEEK, winner=pa>=pb?a:b, loser=winner===a?b:a;
+    const from=rigs[live?a:winner].pos, to=rigs[live?b:loser].pos;
+    const s=from.clone().setY(9), e=to.clone().setY(9);
+    const mid=s.clone().add(e).multiplyScalar(.5);mid.x*=.5;mid.z*=.5;mid.y=17+s.distanceTo(e)*.15;
+    const curve=new THREE.QuadraticBezierCurve3(s,mid,e);
+    const col=live?new THREE.Color('#ff6a2b'):rigs[winner].col.clone();
+    const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,48,.08,6,false),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:live?.45:.7}));
+    const tire=makeTire();scene.add(tube,tire);
+    duels.push({curve,tube,tire,t:rnd(),live,winner,loser,a,b});
+  });
+}
+
+// exhaust/dust puffs
+const puffTex=canvasTex(32,32,(x)=>{const g=x.createRadialGradient(16,16,0,16,16,16);g.addColorStop(0,'rgba(200,170,130,.9)');g.addColorStop(1,'rgba(200,170,130,0)');x.fillStyle=g;x.fillRect(0,0,32,32);});
+const sparks=(()=>{const N=220,geo=new THREE.BufferGeometry(),a=new Float32Array(N*3),v=[];
+  for(let i=0;i<N;i++){a[i*3+1]=-99;v.push({life:0,x:0,y:0,z:0,vx:0,vy:0,vz:0});}
+  geo.setAttribute('position',new THREE.BufferAttribute(a,3));
+  const pts=new THREE.Points(geo,new THREE.PointsMaterial({size:1.6,map:puffTex,transparent:true,depthWrite:false,opacity:.7}));pts.userData.v=v;scene.add(pts);return pts;})();
+let sparkI=0;
+function dust(pos,n=24){const v=sparks.userData.v;for(let k=0;k<n;k++){const p=v[sparkI=(sparkI+1)%v.length];p.life=1;p.x=pos.x+(rnd()-.5)*4;p.y=pos.y+.3;p.z=pos.z+(rnd()-.5)*4;p.vx=(rnd()-.5)*4;p.vy=2+rnd()*4;p.vz=(rnd()-.5)*4;}}
+
+/* ---------- labels ---------- */
+const tags={};
+IDS.forEach(id=>{const el=document.createElement('div');el.className='tag';el.setAttribute('role','button');el.tabIndex=0;
+  el.style.setProperty('--tc',TEAMS[id].color);el.innerHTML='<b></b><span></span>';
+  el.addEventListener('click',()=>select(id));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(id);}});
+  document.body.appendChild(el);tags[id]=el;});
+
+/* ---------- UI ---------- */
+let week=LAST, selected=null, ST=statsThrough(LAST);
+const weeksEl=document.getElementById('weeks');
+weeksEl.style.setProperty('--nw',LIVE_WEEK);
+for(let w=1;w<=LIVE_WEEK;w++){const b=document.createElement('button');b.id='wk'+w;b.textContent=w;if(w===LIVE_WEEK)b.classList.add('live');
+  b.setAttribute('aria-label','Week '+w+(w===LIVE_WEEK?' (in progress)':''));b.addEventListener('click',()=>setWeek(w));weeksEl.appendChild(b);}
+document.getElementById('tableToggle').addEventListener('click',e=>{const o=document.getElementById('table').classList.toggle('open');e.currentTarget.setAttribute('aria-expanded',o);});
+document.getElementById('lgClose').addEventListener('click',()=>select(null));
+const fmt=n=>n.toFixed(2);
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function setWeek(w){
+  week=w; ST=statsThrough(w);
+  document.querySelectorAll('#weeks button').forEach((b,i)=>b.classList.toggle('on',i+1===w));
+  const live=w===LIVE_WEEK;
+  document.getElementById('wkLabel').textContent='Week '+w+(live?' · live':'');
+  document.getElementById('wkHint').textContent=live?'In progress · snapshot '+SNAP:'Stacks and pillars through week '+w;
+  document.getElementById('thru').textContent=live?'thru wk '+LAST:'thru wk '+w;
+  IDS.forEach(id=>{const s=ST.s[id],r=rigs[id];
+    if(s.w>r.wins){r.hop=1;}
+    r.wins=s.w;r.liftT=s.w*.55;r.pillarT=Math.max(.5,s.pf/1150*13);
+    r.stack.forEach((c,i)=>c.visible=i<s.w);});
+  buildDuels(w); renderTable(); renderTags(); if(selected&&view==='arena')renderLedger(selected); renderDash(); renderFc();
+}
+function renderTable(){
+  const ol=document.getElementById('rows');ol.innerHTML='';
+  ST.order.forEach(id=>{const s=ST.s[id];const li=document.createElement('li');const b=document.createElement('button');
+    if(id===selected)b.classList.add('on');
+    b.innerHTML=`<span class="rk">${s.rank}</span><span class="sw" style="background:${TEAMS[id].color}"></span><span class="nm"></span><span class="rec">${s.w}-${s.l}</span>`;
+    b.querySelector('.nm').textContent=TEAMS[id].name;b.addEventListener('click',()=>select(id));li.appendChild(b);ol.appendChild(li);});
+}
+function renderTags(){IDS.forEach(id=>{const s=ST.s[id],el=tags[id];el.querySelector('b').textContent=TEAMS[id].name;el.querySelector('span').textContent=`${s.w}-${s.l} · ${s.pf.toFixed(1)}`;});}
+function renderLedger(id){
+  const s=ST.s[id],t=TEAMS[id];
+  document.getElementById('ledger').style.setProperty('--tc',t.color);
+  document.getElementById('lgName').textContent=t.name;
+  document.getElementById('lgHandle').textContent=`#${s.rank} · ${t.team} · ${t.handle}`;
+  document.getElementById('lgRec').textContent=s.w+'-'+s.l+(s.t?'-'+s.t:'');
+  document.getElementById('lgPF').textContent=s.pf.toFixed(1);
+  document.getElementById('lgPA').textContent=s.pa.toFixed(1);
+  document.getElementById('lgStk').textContent=s.streak;
+  const all=statsThrough(LIVE_WEEK).s[id],svg=document.getElementById('lgBars'),W=520,H=84,max=200,n=LIVE_WEEK,bw=W/n,y150=H-14-(150/max)*(H-24);
+  let out=`<line x1="0" y1="${y150}" x2="${W}" y2="${y150}" stroke="rgba(241,236,226,.18)" stroke-dasharray="3 4"/><text x="${W-2}" y="${y150-3}" text-anchor="end" font-size="9" fill="#a9a49a" font-family="JetBrains Mono,monospace">150</text>`;
+  for(let k=1;k<=n;k++){const v=all.scores[k]||0,h=v/max*(H-24),x=(k-1)*bw+bw*.18,r=k<LIVE_WEEK?all.res[k-1]:null;
+    const fill=k===LIVE_WEEK?'#ff6a2b':(r==='W'?'#8fd17c':'#ee7a64'),op=k<=week?1:.3;
+    out+=`<rect x="${x}" y="${H-14-h}" width="${bw*.64}" height="${Math.max(h,1)}" rx="2" fill="${fill}" opacity="${op}"/>`;
+    out+=`<text x="${x+bw*.32}" y="${H-2}" text-anchor="middle" font-size="10" fill="#a9a49a" font-family="JetBrains Mono,monospace">${k}</text>`;
+    if(v>0)out+=`<text x="${x+bw*.32}" y="${H-17-h}" text-anchor="middle" font-size="9.5" fill="#f1ece2" opacity="${op}" font-family="JetBrains Mono,monospace">${Math.round(v)}</text>`;}
+  svg.innerHTML=out;
+  const m=WEEKS[week].find(r=>r[0]===id||r[2]===id),mine=m[0]===id?m[1]:m[3],opp=m[0]===id?m[2]:m[0],theirs=m[0]===id?m[3]:m[1];
+  document.getElementById('lgNote').innerHTML=week===LIVE_WEEK
+    ?`Week ${LIVE_WEEK} vs <b>${esc(TEAMS[opp].name)}</b>: ${fmt(mine)} to ${fmt(theirs)} so far.`
+    :`Week ${week}: ${mine>theirs?'crushed':'got crushed by'} <b>${esc(TEAMS[opp].name)}</b>, ${fmt(mine)} to ${fmt(theirs)}.`;
+  document.getElementById('ledger').hidden=false;
+}
+let camGoal=null;
+function select(id){
+  selected=id;renderTable();renderDash();renderFc();
+  if(!id){document.getElementById('ledger').hidden=true;camGoal=new THREE.Vector3(0,3,0);controls.autoRotate=!reduce;return;}
+  if(view==='arena')renderLedger(id);controls.autoRotate=false;rigs[id].hop=1;
+  const p=rigs[id].pos;camGoal=new THREE.Vector3(p.x*.6,4,p.z*.6);
+}
+
+const ray=new THREE.Raycaster(),ptr=new THREE.Vector2();let down=null;
+renderer.domElement.addEventListener('pointerdown',e=>{down=[e.clientX,e.clientY];});
+renderer.domElement.addEventListener('pointerup',e=>{if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>6)return;
+  ptr.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(ptr,camera);
+  const hit=ray.intersectObjects(pickables)[0];select(hit?hit.object.userData.id:null);});
+
+/* ---------- analytics ---------- */
+let view='arena'; const hiddenSeries=new Set();
+function analytics(thru){
+  const K=Math.min(thru,LIVE_WEEK-1), A={}; IDS.forEach(id=>A[id]={sc:[],w:0,l:0,aw:0,al:0,exp:0,pa:0,rk:[],res:[]});
+  const games=[];
+  for(let k=1;k<=K;k++){
+    const wk=[];WEEKS[k].forEach(([a,pa,b,pb])=>{wk.push([a,pa],[b,pb]);A[a].pa+=pb;A[b].pa+=pa;games.push({k,a,pa,b,pb,m:Math.abs(pa-pb)});
+      const aw=pa>pb;A[a].res[k]=aw?'W':'L';A[b].res[k]=aw?'L':'W';if(aw){A[a].w++;A[b].l++;}else{A[b].w++;A[a].l++;}});
+    wk.forEach(([id,p])=>{A[id].sc[k]=p;const beat=wk.filter(([o,q])=>o!==id&&q<p).length;A[id].aw+=beat;A[id].al+=5-beat;A[id].exp+=beat/5;
+      A[id].rk[k]=1+wk.filter(([o,q])=>o!==id&&q>p).length;});
+  }
+  IDS.forEach(id=>{const v=A[id].sc.slice(1);const n=v.length||1,avg=v.reduce((s,x)=>s+x,0)/n;
+    Object.assign(A[id],{pf:v.reduce((s,x)=>s+x,0),avg,sd:Math.sqrt(v.reduce((s,x)=>s+(x-avg)**2,0)/n),hi:Math.max(...v),lo:Math.min(...v),luck:A[id].w-A[id].exp});});
+  const order=IDS.slice().sort((x,y)=>(A[y].aw-A[x].aw)||(A[y].pf-A[x].pf));
+  const all=[];for(let k=1;k<=K;k++)IDS.forEach(id=>all.push({id,k,p:A[id].sc[k]}));
+  const hi=all.reduce((m,x)=>x.p>m.p?x:m),lo=all.reduce((m,x)=>x.p<m.p?x:m);
+  const close=games.reduce((m,g)=>g.m<m.m?g:m),blow=games.reduce((m,g)=>g.m>m.m?g:m);
+  return {K,A,order,hi,lo,close,blow};
+}
+const N=id=>esc(TEAMS[id].name), S=id=>esc(TEAMS[id].short);
+const sw=id=>`<i style="background:${TEAMS[id].color}"></i>`;
+function gameLine(g){const wa=g.pa>g.pb;const w=wa?g.a:g.b,l=wa?g.b:g.a;return `<b>${S(w)}</b> ${fmt(Math.max(g.pa,g.pb))} over <b>${S(l)}</b> ${fmt(Math.min(g.pa,g.pb))}, wk ${g.k}`;}
+function renderDash(){
+  if(view!=='dash')return;
+  const R=analytics(week),{K,A}=R;
+  document.getElementById('dSub').textContent=`Weeks 1–${K}`+(week===LIVE_WEEK?' · week '+LIVE_WEEK+' is still being played':'')+' · Sleeper snapshot '+SNAP;
+  document.getElementById('dTiles').innerHTML=[
+    ['High score',fmt(R.hi.p),`<b>${N(R.hi.id)}</b>, week ${R.hi.k}`],
+    ['Low score',fmt(R.lo.p),`<b>${N(R.lo.id)}</b>, week ${R.lo.k}`],
+    ['Closest game',fmt(R.close.m)+' pts',gameLine(R.close)],
+    ['Biggest blowout',fmt(R.blow.m)+' pts',gameLine(R.blow)]
+  ].map(([k,v,d])=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join('');
+  // power table
+  const sg=x=>(x>0?'+':x<0?'−':'')+Math.abs(x).toFixed(1);
+  let h=`<thead><tr><th>Team</th><th>Record</th><th>All-play</th><th>Luck</th><th>PF</th><th>PA</th><th>Avg</th><th>Std dev</th><th>High</th><th>Low</th></tr></thead><tbody>`;
+  R.order.forEach((id,i)=>{const a=A[id];const lk=a.luck;
+    h+=`<tr data-id="${id}" class="${selected===id?'on':''}"><td><span class="who">${sw(id)}${i+1}. ${N(id)}</span></td><td>${a.w}-${a.l}</td><td>${a.aw}-${a.al}</td>
+    <td class="${lk>.25?'pos':lk<-.25?'neg':''}">${lk>.25?'▲ ':lk<-.25?'▼ ':''}${sg(lk)}</td><td>${a.pf.toFixed(1)}</td><td>${a.pa.toFixed(1)}</td><td>${a.avg.toFixed(1)}</td><td>${a.sd.toFixed(1)}</td><td>${a.hi.toFixed(1)}</td><td>${a.lo.toFixed(1)}</td></tr>`;});
+  const pt=document.getElementById('dPower');pt.innerHTML=h+'</tbody>';
+  pt.querySelectorAll('tbody tr').forEach(tr=>tr.addEventListener('click',()=>select(+tr.dataset.id===selected?null:+tr.dataset.id)));
+  // legend
+  const lg=document.getElementById('dLegend');lg.innerHTML='';
+  IDS.forEach(id=>{const b=document.createElement('button');b.innerHTML=`<i style="background:${TEAMS[id].color}"></i>${S(id)}`;
+    b.classList.toggle('off',hiddenSeries.has(id));b.setAttribute('aria-pressed',!hiddenSeries.has(id));
+    b.addEventListener('click',()=>{hiddenSeries.has(id)?hiddenSeries.delete(id):hiddenSeries.add(id);renderDash();});lg.appendChild(b);});
+  drawLine(R);drawScatter(R);drawGrid(R);renderAwards(R);drawSwap(R);
+}
+function drawLine(R){
+  const box=document.getElementById('dLine'),W=Math.max(280,box.clientWidth-20),H=narrow()?200:240,m={l:36,r:14,t:12,b:26},{K,A}=R;
+  const vals=[];IDS.forEach(id=>A[id].sc.slice(1).forEach(v=>vals.push(v)));
+  const y0=Math.floor(Math.min(...vals)/20)*20,y1=Math.ceil(Math.max(...vals)/20)*20;
+  const X=k=>m.l+(K===1?(W-m.l-m.r)/2:(k-1)/(K-1)*(W-m.l-m.r)),Y=v=>m.t+(1-(v-y0)/(y1-y0))*(H-m.t-m.b);
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly points by team">`;
+  for(let v=y0;v<=y1;v+=20)s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(241,236,226,.08)"/><text x="${m.l-6}" y="${Y(v)+3.5}" text-anchor="end" font-size="10.5" fill="#a9a49a" font-family="JetBrains Mono,monospace">${v}</text>`;
+  for(let k=1;k<=K;k++)s+=`<text x="${X(k)}" y="${H-8}" text-anchor="middle" font-size="10.5" fill="#a9a49a" font-family="JetBrains Mono,monospace">Wk ${k}</text>`;
+  // league average
+  const avg=k=>IDS.reduce((t,id)=>t+A[id].sc[k],0)/6;
+  s+=`<polyline fill="none" stroke="#a9a49a" stroke-width="1.5" stroke-dasharray="4 4" points="${Array.from({length:K},(_,i)=>X(i+1)+','+Y(avg(i+1))).join(' ')}"/>`;
+  s+=`<text x="${W-m.r}" y="${Y(avg(K))-6}" text-anchor="end" font-size="10.5" fill="#a9a49a" font-family="Barlow Condensed,sans-serif">League avg</text>`;
+  const ids=IDS.filter(id=>!hiddenSeries.has(id)).sort((a,b)=>(a===selected)-(b===selected));
+  ids.forEach(id=>{const c=TEAMS[id].color,dim=selected&&selected!==id;
+    const pts=Array.from({length:K},(_,i)=>[X(i+1),Y(A[id].sc[i+1])]);
+    s+=`<polyline fill="none" stroke="${c}" stroke-width="${selected===id?3:2}" stroke-linejoin="round" stroke-linecap="round" opacity="${dim?.18:1}" points="${pts.map(p=>p.join(',')).join(' ')}"/>`;
+    pts.forEach((p,i)=>s+=`<circle cx="${p[0]}" cy="${p[1]}" r="${selected===id?4.5:3.2}" fill="${c}" stroke="#1b1f27" stroke-width="2" opacity="${dim?.18:1}"/>`);
+    if(selected===id){const p=pts[pts.length-1];s+=`<text x="${p[0]-8}" y="${p[1]-9}" text-anchor="end" font-size="12" font-weight="600" fill="#f1ece2" font-family="Barlow Condensed,sans-serif">${S(id)}</text>`;}
+  });
+  s+=`<line id="xh" x1="0" x2="0" y1="${m.t}" y2="${H-m.b}" stroke="rgba(241,236,226,.35)" visibility="hidden"/><rect x="${m.l-10}" y="0" width="${W-m.l-m.r+20}" height="${H}" fill="transparent" id="hit"/></svg><div class="tip" hidden></div>`;
+  box.innerHTML=s;
+  const hit=box.querySelector('#hit'),xh=box.querySelector('#xh'),tip=box.querySelector('.tip');
+  const show=e=>{const r=box.querySelector('svg').getBoundingClientRect();const x=e.clientX-r.left;
+    const k=Math.max(1,Math.min(K,Math.round(K===1?1:(x-m.l)/(W-m.l-m.r)*(K-1)+1)));
+    xh.setAttribute('x1',X(k));xh.setAttribute('x2',X(k));xh.setAttribute('visibility','visible');
+    const rows=IDS.slice().sort((a,b)=>A[b].sc[k]-A[a].sc[k]).map(id=>`<div class="r">${sw(id)}${S(id)} <small style="color:#a9a49a">${A[id].res[k]}</small><span>${fmt(A[id].sc[k])}</span></div>`).join('');
+    tip.innerHTML=`<div class="t">Week ${k} · avg ${avg(k).toFixed(1)}</div>${rows}`;tip.hidden=false;
+    const tw=tip.offsetWidth;let left=X(k)+18;if(left+tw>W)left=X(k)-tw-8;tip.style.left=(left+10)+'px';tip.style.top='14px';};
+  hit.addEventListener('pointermove',show);hit.addEventListener('pointerdown',show);
+  hit.addEventListener('pointerleave',()=>{tip.hidden=true;xh.setAttribute('visibility','hidden');});
+}
+function drawScatter(R){
+  const box=document.getElementById('dScatter'),W=Math.max(260,box.clientWidth-20),H=Math.min(300,Math.max(230,W*.72)),m={l:42,r:16,t:14,b:34},{A}=R;
+  const pf=IDS.map(id=>A[id].pf),pa=IDS.map(id=>A[id].pa),all=pf.concat(pa);
+  const pad=(Math.max(...all)-Math.min(...all))*.12+5;
+  const xa=[Math.min(...pf)-pad,Math.max(...pf)+pad],ya=[Math.min(...pa)-pad,Math.max(...pa)+pad];
+  const X=v=>m.l+(v-xa[0])/(xa[1]-xa[0])*(W-m.l-m.r),Y=v=>m.t+(1-(v-ya[0])/(ya[1]-ya[0]))*(H-m.t-m.b);
+  const mx=pf.reduce((a,b)=>a+b)/6,my=pa.reduce((a,b)=>a+b)/6,step=xa[1]-xa[0]>300?100:50;
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Points for versus points against">`;
+  const tf='font-size="10.5" fill="#a9a49a" font-family="JetBrains Mono,monospace"';
+  for(let v=Math.ceil(xa[0]/step)*step;v<=xa[1];v+=step)s+=`<line x1="${X(v)}" x2="${X(v)}" y1="${m.t}" y2="${H-m.b}" stroke="rgba(241,236,226,.06)"/><text x="${X(v)}" y="${H-m.b+14}" text-anchor="middle" ${tf}>${v}</text>`;
+  for(let v=Math.ceil(ya[0]/step)*step;v<=ya[1];v+=step)s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(241,236,226,.06)"/><text x="${m.l-6}" y="${Y(v)+3.5}" text-anchor="end" ${tf}>${v}</text>`;
+  s+=`<line x1="${X(mx)}" x2="${X(mx)}" y1="${m.t}" y2="${H-m.b}" stroke="rgba(241,236,226,.3)" stroke-dasharray="4 4"/><line x1="${m.l}" x2="${W-m.r}" y1="${Y(my)}" y2="${Y(my)}" stroke="rgba(241,236,226,.3)" stroke-dasharray="4 4"/>`;
+  const qf='font-size="11.5" fill="#6f6b63" font-family="Barlow Condensed,sans-serif"';
+  s+=`<text x="${W-m.r-4}" y="${H-m.b-6}" text-anchor="end" ${qf}>Strong &amp; lucky</text><text x="${W-m.r-4}" y="${m.t+12}" text-anchor="end" ${qf}>Strong &amp; snakebit</text>`;
+  s+=`<text x="${m.l+4}" y="${H-m.b-6}" ${qf}>Weak &amp; spared</text><text x="${m.l+4}" y="${m.t+12}" ${qf}>Weak &amp; snakebit</text>`;
+  s+=`<text x="${(m.l+W-m.r)/2}" y="${H-4}" text-anchor="middle" font-size="11.5" fill="#a9a49a" font-family="Barlow Condensed,sans-serif">Points for →</text>`;
+  s+=`<text transform="translate(11 ${(m.t+H-m.b)/2}) rotate(-90)" text-anchor="middle" font-size="11.5" fill="#a9a49a" font-family="Barlow Condensed,sans-serif">Points against →</text>`;
+  IDS.forEach(id=>{const x=X(A[id].pf),y=Y(A[id].pa),dim=selected&&selected!==id,right=x<W-80;
+    s+=`<g data-id="${id}" style="cursor:pointer" opacity="${dim?.3:1}"><circle cx="${x}" cy="${y}" r="16" fill="transparent"/><circle cx="${x}" cy="${y}" r="${selected===id?8:6.5}" fill="${TEAMS[id].color}" stroke="#1b1f27" stroke-width="2"/>
+    <text x="${right?x+11:x-11}" y="${y+4}" text-anchor="${right?'start':'end'}" font-size="12.5" font-weight="600" fill="#f1ece2" font-family="Barlow Condensed,sans-serif">${S(id)}</text></g>`;});
+  s+=`</svg><div class="tip" hidden></div>`;box.innerHTML=s;
+  const tip=box.querySelector('.tip');
+  box.querySelectorAll('g[data-id]').forEach(g=>{const id=+g.dataset.id;
+    g.addEventListener('pointerenter',()=>{const a=A[id];tip.innerHTML=`<div class="r">${sw(id)}<b>${N(id)}</b></div><div class="r">Points for<span>${a.pf.toFixed(1)}</span></div><div class="r">Points against<span>${a.pa.toFixed(1)}</span></div><div class="r">Record<span>${a.w}-${a.l}</span></div>`;
+      tip.hidden=false;const x=X(a.pf);tip.style.left=Math.max(4,Math.min(W-tip.offsetWidth,x-tip.offsetWidth/2))+10+'px';tip.style.top=Math.max(4,Y(a.pa)-tip.offsetHeight-14)+'px';});
+    g.addEventListener('pointerleave',()=>tip.hidden=true);
+    g.addEventListener('click',()=>select(id===selected?null:id));});
+}
+function drawGrid(R){
+  const {K,A}=R;const alpha=[0,.85,.6,.4,.24,.13,.06];
+  let h='<thead><tr><th></th>'+Array.from({length:K},(_,i)=>`<th>Wk ${i+1}</th>`).join('')+'</tr></thead><tbody>';
+  R.order.forEach(id=>{h+=`<tr${selected&&selected!==id?' style="opacity:.4"':''}><th class="tn"><span class="who">${sw(id)}${S(id)}</span></th>`;
+    for(let k=1;k<=K;k++){const r=A[id].rk[k];h+=`<td style="background:rgba(245,176,33,${alpha[r]});color:${r<=2?'#191204':'#f1ece2'}" title="${esc(TEAMS[id].short)}, week ${k}: ${fmt(A[id].sc[k])}, ranked ${r} of 6, ${A[id].res[k]==='W'?'won':'lost'}">${A[id].res[k]} ${Math.round(A[id].sc[k])}<small>${r}${['','st','nd','rd','th','th','th'][r]}</small></td>`;}
+    h+='</tr>';});
+  document.getElementById('dGrid').innerHTML=h+'</tbody>';
+}
+document.getElementById('vArena').addEventListener('click',()=>setView('arena'));
+document.getElementById('vDash').addEventListener('click',()=>setView('dash'));
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{renderDash();renderFc();},120);});
+/* ---------- fun stats ---------- */
+function awardList(R){
+  const {K,A}=R; if(K<1)return [];
+  const by=(f,dir=1)=>IDS.slice().sort((a,b)=>dir*(f(b)-f(a)))[0];
+  const crowns={};IDS.forEach(id=>crowns[id]=0);for(let k=1;k<=K;k++)IDS.forEach(id=>{if(A[id].rk[k]===1)crowns[id]++;});
+  const losses=[],wins=[];for(let k=1;k<=K;k++)IDS.forEach(id=>{(A[id].res[k]==='L'?losses:wins).push({id,k,p:A[id].sc[k]});});
+  const opp=(id,k)=>{const g=WEEKS[k].find(r=>r[0]===id||r[2]===id);return g[0]===id?g[2]:g[0];};
+  const bad=losses.reduce((m,x)=>x.p>m.p?x:m,losses[0]),luckyW=wins.reduce((m,x)=>x.p<m.p?x:m,wins[0]);
+  const flat=IDS.flatMap(id=>Array.from({length:K},(_,i)=>({id,k:i+1,p:A[id].sc[i+1]}))).reduce((m,x)=>x.p<m.p?x:m);
+  const streak=id=>{const r=A[id].res.slice(1);let n=0;const last=r[r.length-1];for(let i=r.length-1;i>=0&&r[i]===last;i--)n++;return {n,last};};
+  const hot=by(id=>{const s=streak(id);return s.last==='W'?s.n:0;}),cold=by(id=>{const s=streak(id);return s.last==='L'?s.n:0;});
+  const sw=swapMatrix(R);let env={g:-99};IDS.forEach(x=>IDS.forEach(y=>{if(x!==y){const g=sw[x][y].w-A[x].w;if(g>env.g)env={g,x,y};}}));
+  const crown=by(id=>crowns[id]*1000+A[id].pf);
+  const cards=[
+    ['Crusher Crown',crown,`Top score in the league ${crowns[crown]} of ${K} weeks.`],
+    ['Bad Beat Bucket',bad.id,`Put up ${fmt(bad.p)} in week ${bad.k} and still lost to ${S(opp(bad.id,bad.k))}.`],
+    ['Lucky Lugnut',luckyW.id,`Won week ${luckyW.k} with just ${fmt(luckyW.p)}.`],
+    ['Flat Tire',flat.id,`Lowest score of the year: ${fmt(flat.p)} in week ${flat.k}.`],
+    ['Wildest Ride',by(id=>A[id].sd),`Swings of ±${A[by(id=>A[id].sd)].sd.toFixed(1)} points week to week.`],
+    ['Cruise Control',by(id=>A[id].sd,-1),`Steadiest scorer, only ±${A[by(id=>A[id].sd,-1)].sd.toFixed(1)} a week.`],
+    ['Snakebit',by(id=>A[id].pa),`Opponents average ${(A[by(id=>A[id].pa)].pa/K).toFixed(1)} against them, most in the league.`],
+    ['Schedule Envy',env.x,`Would be ${sw[env.x][env.y].w}-${sw[env.x][env.y].l} with ${S(env.y)}'s schedule instead of ${A[env.x].w}-${A[env.x].l}.`],
+  ];
+  const hs=streak(hot);if(hs.last==='W'&&hs.n>=2)cards.push(['Hottest Engine',hot,`${hs.n} straight wins and counting.`]);
+  const cs=streak(cold);if(cs.last==='L'&&cs.n>=2)cards.push(['Stuck in the Mud',cold,`${cs.n} straight losses.`]);
+  if(TEAMS[LAST_CHAMP])cards.push(['Defending Champ',LAST_CHAMP,`Won the league last season. Currently ${A[LAST_CHAMP].w}-${A[LAST_CHAMP].l}.`]);
+  return cards;
+}
+function renderAwards(R){const cards=awardList(R);
+  document.getElementById('dAwards').innerHTML=cards.map(([k,id,d])=>`<div class="award" style="--tc:${TEAMS[id].color}"><div class="k">${k}</div><div class="n">${N(id)}</div><div class="d">${esc(d)}</div></div>`).join('');
+}
+function swapMatrix(R){
+  const {K,A}=R,M={};
+  IDS.forEach(x=>{M[x]={};IDS.forEach(y=>{let w=0,l=0;for(let k=1;k<=K;k++){const g=WEEKS[k].find(r=>r[0]===y||r[2]===y);let o=g[0]===y?g[2]:g[0];if(o===x)o=y;
+    if(A[x].sc[k]>A[o].sc[k])w++;else l++;}M[x][y]={w,l};});});
+  return M;
+}
+function drawSwap(R){
+  const M=swapMatrix(R),{A}=R;
+  let h='<thead><tr><th></th>'+IDS.map(y=>`<th class="cn">${S(y)}'s</th>`).join('')+'</tr></thead><tbody>';
+  IDS.forEach(x=>{h+=`<tr><th class="tn"><span class="who">${sw(x)}${S(x)}</span></th>`;
+    IDS.forEach(y=>{const c=M[x][y],d=c.w-A[x].w;const bg=d>0?`rgba(143,209,124,${Math.min(.5,.12*d)})`:d<0?`rgba(238,122,100,${Math.min(.5,.12*-d)})`:'rgba(241,236,226,.05)';
+      h+=`<td class="${x===y?'me':''}" style="background:${bg}" title="${esc(TEAMS[x].short)} with ${esc(TEAMS[y].short)}'s schedule: ${c.w}-${c.l}">${c.w}-${c.l}</td>`;});h+='</tr>';});
+  document.getElementById('dSwap').innerHTML=h+'</tbody>';
+}
+
+/* ---------- forecast (seeded Monte Carlo) ---------- */
+function rng(seed){return()=>{seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const FC={};
+function gamesFor(k){return k<=LIVE_WEEK&&WEEKS[k]?WEEKS[k].map(r=>[r[0],r[2]]):(SCHEDULE[k]||[]);}
+function forecast(asOf,NS=5000){
+  if(FC[asOf])return FC[asOf];
+  const K=Math.min(asOf,LAST),scores={},w={},pf={};IDS.forEach(id=>{scores[id]=[];w[id]=0;pf[id]=0;});
+  for(let k=1;k<=K;k++)WEEKS[k].forEach(([a,pa,b,pb])=>{scores[a].push(pa);scores[b].push(pb);pf[a]+=pa;pf[b]+=pb;if(pa>pb)w[a]++;else w[b]++;});
+  const allS=IDS.flatMap(id=>scores[id]),lm=allS.length?allS.reduce((s,x)=>s+x,0)/allS.length:140;
+  const mu={};IDS.forEach(id=>{const n=scores[id].length;mu[id]=(scores[id].reduce((s,x)=>s+x,0)+3*lm)/(n+3);});
+  let rv=0,rn=0;IDS.forEach(id=>scores[id].forEach(x=>{const m=scores[id].reduce((s,y)=>s+y,0)/scores[id].length;rv+=(x-m)**2;rn++;}));
+  const sd=rn>8?Math.max(16,Math.sqrt(rv/(rn-6))):24;
+  const games=[];for(let k=K+1;k<=REG_SEASON_END;k++)gamesFor(k).forEach(([a,b])=>games.push({k,a,b,aw:0,t:{}}));
+  // tallies per game per side: [wins, bye|win, bye|loss, title|win, title|loss]
+  games.forEach(g=>{g.t[g.a]=[0,0,0,0,0];g.t[g.b]=[0,0,0,0,0];});
+  const T={};IDS.forEach(id=>T[id]={wins:0,bye:0,one:0,title:0,final:0,seed:[0,0,0,0,0,0,0]});
+  const r=rng(1000+asOf);
+  const gauss=()=>{let u=0,v=0;while(!u)u=r();v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+  const pts=id=>mu[id]+sd*gauss();
+  const out=new Int8Array(games.length);
+  for(let n=0;n<NS;n++){
+    const W=Object.assign({},w),P=Object.assign({},pf);
+    games.forEach((g,i)=>{const x=pts(g.a),y=pts(g.b);P[g.a]+=x;P[g.b]+=y;const aw=x>y;if(aw)W[g.a]++;else W[g.b]++;out[i]=aw?1:0;});
+    const seeds=IDS.slice().sort((a,b)=>(W[b]-W[a])||(P[b]-P[a]));
+    const duel=(a,b)=>pts(a)>pts(b)?a:b;
+    const q1=duel(seeds[2],seeds[5]),q2=duel(seeds[3],seeds[4]);
+    const rem=[q1,q2].sort((a,b)=>seeds.indexOf(a)-seeds.indexOf(b));
+    const s1=duel(seeds[0],rem[1]),s2=duel(seeds[1],rem[0]);const champ=duel(s1,s2);
+    IDS.forEach(id=>{T[id].wins+=W[id];});
+    seeds.forEach((id,i)=>T[id].seed[i+1]++);T[seeds[0]].one++;T[seeds[0]].bye++;T[seeds[1]].bye++;T[s1].final++;T[s2].final++;T[champ].title++;
+    const bye=new Set([seeds[0],seeds[1]]);
+    games.forEach((g,i)=>{const win=out[i]?g.a:g.b,los=out[i]?g.b:g.a;if(out[i])g.aw++;
+      const tw=g.t[win],tl=g.t[los];tw[0]++;if(bye.has(win))tw[1]++;if(champ===win)tw[3]++;if(bye.has(los))tl[2]++;if(champ===los)tl[4]++;});
+  }
+  IDS.forEach(id=>{const t=T[id];t.wins/=NS;t.bye/=NS;t.one/=NS;t.title/=NS;t.final/=NS;t.seed=t.seed.map(x=>x/NS);});
+  return FC[asOf]={K,T,games,NS,mu,sd,w};
+}
+const pc=x=>x>=.995?'>99%':x<.005&&x>0?'<1%':Math.round(x*100)+'%';
+function mustWin(F,id){
+  let best=null;F.games.forEach(g=>{if(g.a!==id&&g.b!==id)return;const t=g.t[id],nw=t[0],nl=F.NS-nw;if(nw<50||nl<50)return;
+    const bw=t[1]/nw,bl=t[2]/nl,tw=t[3]/nw,tl=t[4]/nl,sw=F.T[id].bye>=.03?bw-bl:tw-tl;
+    if(!best||sw>best.sw)best={k:g.k,opp:g.a===id?g.b:g.a,bw,bl,tw,tl,sw,p:(g.a===id?g.aw:F.NS-g.aw)/F.NS};});
+  return best;
+}
+function renderFc(){
+  if(view!=='fc')return;
+  const asOf=Math.min(week,LAST),F=forecast(asOf);
+  const left=REG_SEASON_END-F.K;
+  document.getElementById('fSub').textContent=`After week ${F.K} · ${left} regular-season week${left===1?'':'s'} left · ${F.NS.toLocaleString()} simulated seasons · Sleeper snapshot ${SNAP}`;
+  const order=IDS.slice().sort((a,b)=>F.T[b].title-F.T[a].title);
+  const meter=(lab,v,c)=>`<div class="meter"><span class="ml">${lab}</span><b>${pc(v)}</b><div class="bar"><i style="width:${Math.max(1,v*100)}%;background:${c}"></i></div></div>`;
+  document.getElementById('fOdds').innerHTML=order.map(id=>{const t=F.T[id],gl=REG_SEASON_END-F.K;const pw=t.wins;
+    return `<div class="orow ${selected===id?'on':''}" data-id="${id}"><div class="nm"><span class="who">${sw(id)}${N(id)}</span><small>Now ${F.w[id]}-${F.K-F.w[id]} · projected ${pw.toFixed(1)}-${(REG_SEASON_END-pw).toFixed(1)}</small></div>
+    <div class="pr" title="Projected weekly score">${F.mu[id].toFixed(0)} pts/wk</div>${meter('Bye',t.bye,TEAMS[id].color)}${meter('No. 1 seed',t.one,TEAMS[id].color)}${meter('Champion',t.title,'#f5b021')}</div>`;}).join('');
+  document.querySelectorAll('#fOdds .orow[data-id]').forEach(el=>el.addEventListener('click',()=>select(+el.dataset.id===selected?null:+el.dataset.id)));
+  // must-win
+  document.getElementById('fMust').innerHTML=order.map(id=>{const m=mustWin(F,id);
+    if(!m)return `<div class="mcard" style="--tc:${TEAMS[id].color}"><div class="n">${N(id)}</div><div class="g">No swing games left</div><div class="sw">Their seed is settled either way.</div></div>`;
+    const tag=F.T[id].bye<.03?'The bye is out of reach, so this is the game that does the most for their title odds.':m.sw<.04?'Low stakes everywhere. This is the biggest one.':(m.bw>.5&&m.bl<.35?'Win and the bye is likely. Lose and it probably slips away.':'The biggest swing left on their schedule.');
+    return `<div class="mcard" style="--tc:${TEAMS[id].color}"><div class="n">${N(id)}</div><div class="g">Week ${m.k} vs ${S(m.opp)} <span>· ${pc(m.p)} to win</span></div>
+      <div class="sp"><div><small>If they win</small><b>${pc(m.bw)}</b> bye<br><b>${pc(m.tw)}</b> title</div><div><small>If they lose</small><b>${pc(m.bl)}</b> bye<br><b>${pc(m.tl)}</b> title</div></div>
+      <div class="sw">${tag}</div></div>`;}).join('');
+  // next week duels
+  const nk=F.K+1;document.getElementById('fNextH').textContent=nk<=REG_SEASON_END?`Week ${nk} picks`:'Regular season complete';
+  document.getElementById('fNext').innerHTML=F.games.filter(g=>g.k===nk).map(g=>{const pa=g.aw/F.NS,pb=1-pa;
+    const live=nk===LIVE_WEEK&&WEEKS[nk]?WEEKS[nk].find(r=>r[0]===g.a||r[2]===g.a):null;
+    const ls=live?(live[0]===g.a?[live[1],live[3]]:[live[3],live[1]]):null;
+    return `<div class="duel"><div class="row"><span>${S(g.a)}</span><span>${S(g.b)}</span></div>
+      <div class="split"><i style="flex:${pa};background:${TEAMS[g.a].color}"></i><i style="flex:${pb};background:${TEAMS[g.b].color}"></i></div>
+      <div class="pct"><span>${pc(pa)} · proj ${F.mu[g.a].toFixed(0)}</span>${ls&&(ls[0]||ls[1])?`<span>live ${fmt(ls[0])}–${fmt(ls[1])}</span>`:''}<span>proj ${F.mu[g.b].toFixed(0)} · ${pc(pb)}</span></div></div>`;}).join('')
+    +(nk===LIVE_WEEK?`<p class="sub" style="margin:2px 0 0">Picks are pregame odds. The live score so far is shown in the middle.</p>`:'');
+  // legend + trend
+  const lg=document.getElementById('fLegend');lg.innerHTML='';
+  IDS.forEach(id=>{const b=document.createElement('button');b.innerHTML=`<i style="background:${TEAMS[id].color}"></i>${S(id)}`;b.classList.toggle('off',hiddenSeries.has(id));
+    b.setAttribute('aria-pressed',!hiddenSeries.has(id));b.addEventListener('click',()=>{hiddenSeries.has(id)?hiddenSeries.delete(id):hiddenSeries.add(id);renderFc();});lg.appendChild(b);});
+  drawTrend(asOf);
+}
+function drawTrend(asOf){
+  const box=document.getElementById('fTrend'),W=Math.max(260,box.clientWidth-20),H=220,m={l:36,r:14,t:12,b:26};
+  const ks=Array.from({length:asOf+1},(_,i)=>i),data=ks.map(k=>forecast(k).T);
+  const X=k=>m.l+(asOf===0?0:k/asOf)*(W-m.l-m.r),max=Math.max(.4,Math.ceil(Math.max(...data.flatMap(t=>IDS.map(id=>t[id].title)))*10)/10),Y=v=>m.t+(1-v/max)*(H-m.t-m.b);
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Title odds after each week">`;
+  for(let v=0;v<=max+1e-9;v+=.1)s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(241,236,226,.08)"/><text x="${m.l-6}" y="${Y(v)+3.5}" text-anchor="end" font-size="10.5" fill="#a9a49a" font-family="JetBrains Mono,monospace">${Math.round(v*100)}%</text>`;
+  ks.forEach(k=>s+=`<text x="${X(k)}" y="${H-8}" text-anchor="middle" font-size="10.5" fill="#a9a49a" font-family="JetBrains Mono,monospace">${k===0?'Pre':'Wk '+k}</text>`);
+  IDS.filter(id=>!hiddenSeries.has(id)).sort((a,b)=>(a===selected)-(b===selected)).forEach(id=>{const c=TEAMS[id].color,dim=selected&&selected!==id;
+    const p=ks.map(k=>[X(k),Y(data[k][id].title)]);
+    s+=`<polyline fill="none" stroke="${c}" stroke-width="${selected===id?3:2}" stroke-linejoin="round" opacity="${dim?.18:1}" points="${p.map(q=>q.join(',')).join(' ')}"/>`;
+    const e=p[p.length-1];s+=`<circle cx="${e[0]}" cy="${e[1]}" r="4" fill="${c}" stroke="#1b1f27" stroke-width="2" opacity="${dim?.18:1}"/>`;});
+  s+=`<line id="xh2" x1="0" x2="0" y1="${m.t}" y2="${H-m.b}" stroke="rgba(241,236,226,.35)" visibility="hidden"/><rect x="${m.l-10}" y="0" width="${W-m.l-m.r+20}" height="${H}" fill="transparent" id="hit2"/></svg><div class="tip" hidden></div>`;
+  box.innerHTML=s;
+  const hit=box.querySelector('#hit2'),xh=box.querySelector('#xh2'),tip=box.querySelector('.tip');
+  const show=e=>{const x=e.clientX-box.querySelector('svg').getBoundingClientRect().left;const k=Math.max(0,Math.min(asOf,Math.round(asOf===0?0:(x-m.l)/(W-m.l-m.r)*asOf)));
+    xh.setAttribute('x1',X(k));xh.setAttribute('x2',X(k));xh.setAttribute('visibility','visible');
+    tip.innerHTML=`<div class="t">${k===0?'Preseason':'After week '+k}</div>`+IDS.slice().sort((a,b)=>data[k][b].title-data[k][a].title).map(id=>`<div class="r">${sw(id)}${S(id)}<span>${pc(data[k][id].title)}</span></div>`).join('');
+    tip.hidden=false;let left=X(k)+18;if(left+tip.offsetWidth>W)left=X(k)-tip.offsetWidth-8;tip.style.left=(left+10)+'px';tip.style.top='14px';};
+  hit.addEventListener('pointermove',show);hit.addEventListener('pointerdown',show);hit.addEventListener('pointerleave',()=>{tip.hidden=true;xh.setAttribute('visibility','hidden');});
+}
+function setView(v){
+  view=v;document.body.classList.toggle('dashOn',v!=='arena');document.getElementById('dash').hidden=v==='arena';
+  document.getElementById('wStats').hidden=v!=='dash';document.getElementById('wFc').hidden=v!=='fc';
+  [['vArena','arena'],['vDash','dash'],['vFc','fc']].forEach(([b,n])=>document.getElementById(b).setAttribute('aria-pressed',v===n));
+  document.getElementById('dash').scrollTop=0;
+  if(v==='dash')renderDash();else if(v==='fc')renderFc();else if(selected)renderLedger(selected);
+}
+document.getElementById('vFc').addEventListener('click',()=>setView('fc'));
+
+
+/* ---------- loop ---------- */
+function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+addEventListener('resize',resize);resize();
+const v3=new THREE.Vector3(),mtx=new THREE.Matrix4(),clock=new THREE.Clock();
+function frame(){
+  const dt=Math.min(clock.getDelta(),.05),T=clock.elapsedTime,ease=k=>reduce?1:Math.min(1,dt*k);
+  if(view!=='arena'){requestAnimationFrame(frame);return;}
+  IDS.forEach(id=>{const r=rigs[id],u=r.truck.userData;
+    r.lift+=(r.liftT-r.lift)*ease(4);
+    if(r.hop>0){r.hop=Math.max(0,r.hop-dt*1.1);if(r.hop<.02&&r.hop>0){dust(r.pos.clone().setY(r.lift),18);}}
+    const hopY=reduce?0:Math.sin((1-r.hop)*Math.PI)*(r.hop>0?3:0);
+    r.truck.position.y=r.lift+hopY;
+    u.body.position.y=reduce?0:Math.sin(T*9+id)*.03+(selected===id?Math.abs(Math.sin(T*6))*.12:0);
+    u.body.rotation.z=reduce?0:Math.sin(T*3+id)*.012;
+    u.wheels.forEach(w=>{w.rotation.z-=selected===id&&!reduce?dt*8:0;});
+    u.body.traverse(o=>{if(o.userData.flag){const fp=o.geometry.attributes.position;for(let i=0;i<fp.count;i++){const x=fp.getX(i);fp.setZ(i,Math.sin(x*4+T*5+id)*.1*(x+.8));}fp.needsUpdate=true;}
+      if(o.userData.wing&&!reduce){o.rotation.x=o.userData.wing*(-Math.PI/2.4+Math.sin(T*3)*.25);}});
+    r.pillarH+=(r.pillarT-r.pillarH)*ease(3);r.pillar.scale.y=r.pillarH;r.cap.position.y=r.pillarH+.1;
+    r.pillar.material.emissiveIntensity=selected===id?.9+Math.sin(T*5)*.2:.5;
+  });
+  trophy.rotation.y=reduce?0:T*.3;
+  duels.forEach(d=>{d.t=(d.t+dt*(d.live?.15:.3))%1;const t=d.live?(.5+Math.sin(T*1.1+d.a)*.38):d.t;
+    d.tire.position.copy(d.curve.getPoint(t));d.tire.rotation.x+=dt*6;d.tire.rotation.y+=dt*3;
+    const show=!selected||d.a===selected||d.b===selected;d.tube.material.opacity=show?(d.live?.45:.75):.07;d.tire.visible=show;});
+  // dust particles
+  const sp=sparks.geometry.attributes.position,sv=sparks.userData.v;
+  for(let i=0;i<sv.length;i++){const p=sv[i];if(p.life>0){p.life-=dt*.8;p.vy-=dt*6;p.x+=p.vx*dt;p.y=Math.max(.2,p.y+p.vy*dt);p.z+=p.vz*dt;sp.setXYZ(i,p.x,p.y,p.z);}else sp.setY(i,-99);}
+  sp.needsUpdate=true;
+  // crowd bounce
+  if(!reduce&&crowd){const b=crowd.userData.base;for(let i=0;i<b.length;i+=1){const [x,y,z,a,ph]=b[i];mtx.makeRotationY(-a);mtx.setPosition(x,y+Math.max(0,Math.sin(T*6+ph))*.18,z);crowd.setMatrixAt(i,mtx);}crowd.instanceMatrix.needsUpdate=true;}
+  if(camGoal){controls.target.lerp(camGoal,ease(2.5));if(controls.target.distanceTo(camGoal)<.05)camGoal=null;}
+  controls.update();renderer.render(scene,camera);
+  IDS.forEach(id=>{const r=rigs[id];v3.set(r.pos.x,r.truck.position.y+8.6,r.pos.z).project(camera);const el=tags[id];
+    if(v3.z>1){el.hidden=true;return;}el.hidden=false;
+    el.style.transform=`translate(${(v3.x*.5+.5)*innerWidth}px,${(-v3.y*.5+.5)*innerHeight}px) translate(-50%,-100%)`;
+    el.classList.toggle('dim',!!selected&&selected!==id);});
+  requestAnimationFrame(frame);
+}
+
+/* ---------- splash ---------- */
+function renderSplash(){
+  const F=forecast(LAST),R=analytics(LAST),order=ST.order;
+  const fav=IDS.slice().sort((a,b)=>F.T[b].title-F.T[a].title)[0];
+  document.getElementById('spStrap').innerHTML=`Six drivers. One trophy. Week ${LIVE_WEEK} is underway and <b>${N(fav)}</b> is the title favorite at ${pc(F.T[fav].title)}.`;
+  document.getElementById('spLineup').innerHTML=order.map((id,i)=>{const s=ST.s[id];
+    return `<button class="dcard" data-id="${id}" style="--tc:${TEAMS[id].color}" aria-label="${esc(TEAMS[id].name)}, rank ${i+1}"><span class="rk">${i+1}</span><span class="n">${N(id)}</span><span class="t">${esc(TEAMS[id].team)}</span>
+      <span class="st"><span><b>${s.w}-${s.l}</b>record</span><span><b>${Math.round(s.pf)}</b>pts</span><span><b>${pc(F.T[id].title)}</b>title</span></span></button>`;}).join('');
+  const facts=awardList(R).map(([k,id,d])=>`<span><b>${esc(k)}</b>${N(id)}: ${esc(d)}</span>`).join('');
+  document.getElementById('spTicker').innerHTML=facts+facts;
+  document.getElementById('spFine').textContent='Scores from Sleeper as of '+SNAP+'.';
+  document.querySelectorAll('#spLineup .dcard').forEach(b=>b.addEventListener('click',()=>{closeSplash('arena');select(+b.dataset.id);}));
+}
+function closeSplash(v){const sp=document.getElementById('splash');sp.hidden=true;setView(v);}
+document.getElementById('spGo').addEventListener('click',()=>closeSplash('arena'));
+document.getElementById('spStats').addEventListener('click',()=>closeSplash('dash'));
+document.getElementById('spFc').addEventListener('click',()=>closeSplash('fc'));
+setWeek(LAST);
+renderSplash();
+document.getElementById('load').remove();
+frame();
+})();
+</script>

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Merrymen Mudbowl</title>
+<meta name="description" content="Live stats, forecast, commentators' booth and a 3D monster-truck arena for the 2026–27 Lord Grigass &amp; the Merrymen fantasy football league.">
+<meta name="theme-color" content="#0d0f14">
+<meta property="og:title" content="Merrymen Mudbowl">
+<meta property="og:description" content="2026–27 fantasy football. Six drivers, one trophy, live from Sleeper.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+<div id="stage"></div>
+<div id="err" role="alert" hidden>
+  <div class="box"><h2>Couldn't reach Sleeper</h2><p id="errMsg"></p><button id="errRetry">Retry</button></div>
+</div>
+<div id="load">Firing up the engines…</div>
+<div id="splash" role="dialog" aria-label="Welcome">
+  <div class="in">
+    <div class="chanbar"><span class="chan">MUD<b>8</b></span><span class="onair"><i></i>Live</span><span class="tag8">All mud. All the time.</span></div>
+    <div class="eyebrow">Lord Grigass &amp; the Merrymen · 2026–27 fantasy football</div>
+    <div class="mast"><h1>Merrymen <span>Mudbowl</span></h1></div>
+    <p class="strap" id="spStrap"></p>
+    <section class="booth" aria-label="Commentators' booth and leaderboard">
+      <div class="cast" id="cast">
+        <div class="castbar"><span>Commentators' booth</span><span class="onair"><i></i>On air</span></div>
+        <div class="duo">
+          <div class="ann on" data-id="A"><span class="av">ST</span><span class="an">Skip<small>Play-by-play</small></span></div>
+          <div class="ann" data-id="B"><span class="av">GG</span><span class="an">Gearbox<small>Color analyst</small></span></div>
+        </div>
+        <button class="say" id="boothSay" aria-live="polite"></button>
+        <div class="chyron" id="boothName"></div>
+        <div class="ctl"><button id="boothPrev" aria-label="Previous call">‹</button><span id="boothPos"></span><button id="boothNext">Next call ›</button></div>
+      </div>
+      <div class="board">
+        <div class="bhead"><h2>Leaderboard</h2><div class="bsort" id="boardSort" role="group" aria-label="Sort leaderboard"></div></div>
+        <ol id="boardRows"></ol>
+      </div>
+    </section>
+    <div class="ticker" aria-label="Season facts"><span class="crawl">MUD 8 crawl</span><div class="track" id="spTicker"></div></div>
+    <div class="ctas"><button class="go" id="spGo">Enter the arena</button><button id="spStats">Stats</button><button id="spFc">Forecast</button><button id="spDr">Drivers</button></div>
+    <p class="fine" id="spFine"></p>
+  </div>
+</div>
+
+<div class="hud" id="crest">
+  <div class="eyebrow">Lord Grigass &amp; the Merrymen · 2026–27</div>
+  <h1>Merrymen Mudbowl</h1>
+  <div class="mini"><span class="mw" id="miniWho">Skip</span><span class="ms" id="miniSay"></span><button id="miniNext" aria-label="Next call">›</button></div>
+  <button class="homebtn" data-home>◂ Booth</button>
+  <p>Each truck sits on a stack of crushed cars, one per win. The glowing pillar is points scored. Tires fly from each week's winner to the loser. Drag to look around, tap a truck.</p>
+</div>
+
+<div class="hud" id="table">
+  <h2><span class="lbl">Standings</span><button id="tableToggle" aria-expanded="false">Standings ▾</button><small id="thru"></small></h2>
+  <ol id="rows"></ol>
+</div>
+
+<div class="hud" id="ledger" hidden>
+  <header>
+    <div><h3 id="lgName"></h3><div class="handle" id="lgHandle"></div></div>
+    <button class="x" id="lgClose" aria-label="Close driver card">×</button>
+  </header>
+  <dl>
+    <div><dt>Record</dt><dd id="lgRec"></dd></div>
+    <div><dt>Pts for</dt><dd id="lgPF"></dd></div>
+    <div><dt>Pts vs</dt><dd id="lgPA"></dd></div>
+    <div><dt>Streak</dt><dd id="lgStk"></dd></div>
+  </dl>
+  <svg class="bars" id="lgBars" viewBox="0 0 520 84" preserveAspectRatio="none" aria-label="Weekly scores"></svg>
+  <p class="note" id="lgNote"></p>
+  <button class="plink" id="lgProf">Driver profile ›</button>
+</div>
+
+<div id="dash" hidden>
+  <div class="wrap" id="wStats">
+    <div class="head">
+      <div><button class="homebtn" data-home>◂ Booth</button><h2>Stats</h2><p id="dSub"></p></div>
+    </div>
+    <section aria-label="Season records"><div class="tiles" id="dTiles"></div></section>
+    <section>
+      <h3>Mudbowl awards</h3>
+      <div class="awards" id="dAwards"></div>
+    </section>
+    <section>
+      <h3>Power rankings</h3>
+      <p class="sub">All-play is the record each team would have if it played everyone every week. Luck is actual wins minus the wins that all-play record predicts.</p>
+      <div class="scroll"><table class="power" id="dPower"></table></div>
+    </section>
+    <section>
+      <h3>Weekly scoring</h3>
+      <div class="legend" id="dLegend"></div>
+      <div class="chart" id="dLine"></div>
+    </section>
+    <div class="two">
+      <section>
+        <h3>Points for vs. points against</h3>
+        <p class="sub">Lines mark the league averages. Bottom right is scoring a lot and facing soft opponents.</p>
+        <div class="chart" id="dScatter"></div>
+      </section>
+      <section>
+        <h3>Weekly finish</h3>
+        <p class="sub">Each cell is where that score ranked among all six that week, with the matchup result.</p>
+        <div class="scroll"><table class="grid" id="dGrid"></table></div>
+        <div class="scale"><span>1st</span><i style="background:rgba(245,176,33,.85)"></i><i style="background:rgba(245,176,33,.6)"></i><i style="background:rgba(245,176,33,.4)"></i><i style="background:rgba(245,176,33,.24)"></i><i style="background:rgba(245,176,33,.13)"></i><i style="background:rgba(245,176,33,.06)"></i><span>6th</span></div>
+      </section>
+    </div>
+    <section>
+      <h3>Player spotlight</h3>
+      <p class="sub">Points come from each week's best-ball lineup, straight from Sleeper. Tap a row to jump to that driver.</p>
+      <div class="tiles" id="dPlayerTiles"></div>
+      <div class="scroll"><table class="power" id="dPlayers"></table></div>
+      <div class="tiles" id="dPos"></div>
+    </section>
+    <section>
+      <h3>Rivalries</h3>
+      <p class="sub">Every game between two drivers, last season and this one. Tap a cell for the game log.</p>
+      <div class="awards" id="dRivalFacts"></div>
+      <div class="scroll"><table class="grid swap" id="dRivals"></table></div>
+      <div class="rlog" id="dRivalLog"></div>
+    </section>
+    <section>
+      <h3>Schedule swap</h3>
+      <p class="sub">The record each team would have with someone else's schedule. Read across a row: that team's scores, played against the column team's opponents. The outlined cell is the real record.</p>
+      <div class="scroll"><table class="grid swap" id="dSwap"></table></div>
+    </section>
+  </div>
+
+  <div class="wrap" id="wFc" hidden>
+    <div class="head">
+      <div><button class="homebtn" data-home>◂ Booth</button><h2>Forecast</h2><p id="fSub"></p></div>
+    </div>
+    <section>
+      <h3>Title odds</h3>
+      <p class="sub">Every team makes the six-team playoff. Seeds 1 and 2 skip week 15, so the bye is the real prize. Each week's scores come from a team's season average, pulled toward the league average, with the league's week-to-week swing.</p>
+      <div class="odds" id="fOdds"></div>
+    </section>
+    <section id="fBrSec" hidden>
+      <h3>Playoff bracket</h3>
+      <p class="sub">Straight from Sleeper. Odds above simulate only the games still to be played.</p>
+      <div class="brk" id="fBracket"></div>
+    </section>
+    <section>
+      <h3>Must-win games</h3>
+      <p class="sub">For each driver, the remaining game that moves their bye odds the most. For drivers with no real shot at a bye, it's the game that moves their title odds the most.</p>
+      <div class="must" id="fMust"></div>
+    </section>
+    <div class="two">
+      <section>
+        <h3 id="fNextH">This week</h3>
+        <div class="duels" id="fNext"></div>
+      </section>
+      <section>
+        <h3>How the odds moved</h3>
+        <div class="legend" id="fLegend"></div>
+        <div class="chart" id="fTrend"></div>
+      </section>
+    </div>
+  </div>
+  <div class="wrap" id="wDr" hidden>
+    <div class="head">
+      <div><button class="homebtn" data-home>◂ Booth</button><h2>Drivers</h2><p id="drSub"></p></div>
+    </div>
+    <div class="pcards" id="drCards"></div>
+  </div>
+</div>
+
+<div class="hud" id="scrub">
+  <div class="row"><div class="wk" id="wkLabel">Week 7</div>
+    <div class="seg" role="group" aria-label="View"><button id="vArena" aria-pressed="true">Arena</button><button id="vDash" aria-pressed="false">Stats</button><button id="vFc" aria-pressed="false">Forecast</button><button id="vDr" aria-pressed="false">Drivers</button></div></div>
+  <div id="weeks" role="group" aria-label="Choose week"></div>
+  <div class="hint" id="wkHint"></div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
