@@ -7,6 +7,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { M, rnd, junkColors, junkCar, canvasTex, makeTruck, makeTire } from './trucks.js';
+import { loadProps, placeProps } from './props.js';
 import { TEAMS, IDS, WEEKS, LIVE_WEEK, LAST, REG_END } from '../model/league.js';
 import { app, act } from '../state.js';
 
@@ -209,10 +210,17 @@ function frame(){
   requestAnimationFrame(frame);
 }
 
+let envTex=null;
+const giveEnv=root=>{if(envTex)root.traverse(o=>{const m=o.material;if(m&&m.isMeshStandardMaterial&&m.metalness>=.3){m.envMap=envTex;m.envMapIntensity=.5;m.needsUpdate=true;}});};
 new RGBELoader().setDataType(THREE.UnsignedByteType).load(ASSETS+'dikhololo_night_1k.hdr',hdr=>{
-  const pm=new THREE.PMREMGenerator(renderer),env=pm.fromEquirectangular(hdr).texture;hdr.dispose();pm.dispose();
-  scene.traverse(o=>{const m=o.material;if(m&&m.isMeshStandardMaterial&&m.metalness>=.3){m.envMap=env;m.envMapIntensity=.5;m.needsUpdate=true;}});
+  const pm=new THREE.PMREMGenerator(renderer);envTex=pm.fromEquirectangular(hdr).texture;hdr.dispose();pm.dispose();
+  giveEnv(scene);
 });
+
+// Pilot: scenery from NVIDIA SimReady assets (CC BY 4.0). ?props=off in the URL leaves the arena as it was.
+if(new URLSearchParams(location.search).get('props')!=='off'){
+  loadProps(renderer).then(models=>{const g=placeProps(models);scene.add(g);giveEnv(g);}).catch(e=>console.warn('SimReady props unavailable',e));
+}
 
 return {
   start(){ resize(); frame(); },

@@ -377,3 +377,5 @@ table.power td:first-child .who{white-space:nowrap}
 .rl li b{font-family:var(--mono);font-size:12px;font-weight:500}
 .rl li.W b{color:var(--win)} .rl li.L b{color:var(--loss)}
 .rl li span:last-child{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+
+.fine.credits a{color:inherit;text-decoration:underline}

@@ -28,7 +28,9 @@ npm run check    # pulls live data and prints the forecast table to compare with
 
 ## Credits
 
-Floor texture `brown_mud` and sky `dikhololo_night` come from [Poly Haven](https://polyhaven.com) (CC0). Add `?fx=off` to the URL to turn the glow effect off.
+Floor texture `brown_mud` and sky `dikhololo_night` come from [Poly Haven](https://polyhaven.com) (CC0).
+
+Arena props (`public/models/simready/`) are [NVIDIA SimReady assets](https://huggingface.co/datasets/nvidia/simready-assets), licensed CC BY 4.0, in the GLB conversion from [codepawl/simready-glb](https://huggingface.co/datasets/codepawl/simready-glb) (`mobile/` set). They are scaled and repositioned, not otherwise changed. Add `?props=off` to the URL to hide them. Add `?fx=off` to the URL to turn the glow effect off.
 
 ## What comes from Sleeper
 
